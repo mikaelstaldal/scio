@@ -61,7 +61,7 @@ private[coders] object CoderMacros {
     // Use shapeless magic to find out if a proper implicit is actually available
     val lowPrio = new shapeless.LowPriorityMacros(c)
     val secondImplicit = lowPrio.secondOpenImplicitTpe
-    val implicitFound = secondImplicit.isDefined
+    val implicitFound = lowPrio.openImplicitTpe == secondImplicit
 
     val toReport = (c.enclosingPosition.toString -> wtt.toString)
     val alreadyReported = reported.contains(toReport)
