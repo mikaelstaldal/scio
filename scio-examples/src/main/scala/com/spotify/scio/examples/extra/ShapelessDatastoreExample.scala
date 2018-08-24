@@ -27,7 +27,7 @@ import com.google.datastore.v1.Query
 import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 import shapeless.datatype.datastore._
-import com.spotify.scio.coders.Implicits._
+
 
 object ShapelessDatastoreExample {
   val kind = "shapeless"

@@ -30,7 +30,7 @@ import com.spotify.scio.examples.common.ExampleData
 import com.spotify.scio.values.SCollection
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow
 import org.joda.time.{Duration, Instant}
-import com.spotify.scio.coders.Implicits._
+
 
 object TopWikipediaSessions {
   def main(cmdlineArgs: Array[String]): Unit = {

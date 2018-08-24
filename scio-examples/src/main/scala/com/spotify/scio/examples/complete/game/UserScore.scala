@@ -28,7 +28,7 @@ package com.spotify.scio.examples.complete.game
 import com.spotify.scio._
 import com.spotify.scio.bigquery._
 import com.spotify.scio.examples.common.ExampleData
-import com.spotify.scio.coders.Implicits._
+
 
 import scala.util.Try
 

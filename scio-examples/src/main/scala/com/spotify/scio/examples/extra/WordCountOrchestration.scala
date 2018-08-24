@@ -24,7 +24,7 @@ import com.spotify.scio.values.SCollection
 import org.apache.beam.sdk.options.PipelineOptions
 
 import scala.concurrent.Future
-import com.spotify.scio.coders.Implicits._
+
 
 /*
 SBT

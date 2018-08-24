@@ -26,7 +26,7 @@ import scala.reflect.io.File
 import scala.util.Try
 
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 object CheckpointMetrics {
 

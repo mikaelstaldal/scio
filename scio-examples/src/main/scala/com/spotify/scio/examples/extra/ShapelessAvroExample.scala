@@ -21,7 +21,7 @@ import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 import org.apache.avro.generic.GenericRecord
 import shapeless.datatype.avro._
-import com.spotify.scio.coders.Implicits._
+
 
 /*
  * Avro examples using shapeless-datatype to seamlessly convert between case classes and Avro

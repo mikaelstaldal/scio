@@ -18,7 +18,7 @@
 package com.spotify.scio.values
 
 import com.spotify.scio._
-import com.spotify.scio.coders.Implicits._
+
 import com.spotify.scio.util.StatCounter
 
 /**

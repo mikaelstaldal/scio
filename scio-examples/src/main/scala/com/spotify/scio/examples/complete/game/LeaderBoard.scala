@@ -40,7 +40,7 @@ import org.apache.beam.sdk.options.StreamingOptions
 import org.apache.beam.sdk.transforms.windowing._
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTimeZone, Duration, Instant}
-import com.spotify.scio.coders.Implicits._
+
 
 object LeaderBoard {
 

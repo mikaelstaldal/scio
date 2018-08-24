@@ -34,7 +34,7 @@ import org.apache.beam.sdk.transforms.windowing.IntervalWindow
 import org.apache.beam.sdk.util.MimeTypes
 import org.joda.time.format.ISODateTimeFormat
 import org.joda.time.{Duration, Instant}
-import com.spotify.scio.coders.Implicits._
+
 
 object WindowedWordCount {
 

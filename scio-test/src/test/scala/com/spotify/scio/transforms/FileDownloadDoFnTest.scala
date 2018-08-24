@@ -24,7 +24,7 @@ import com.google.common.io.{Files => GFiles}
 import com.spotify.scio.testing._
 
 import scala.collection.JavaConverters._
-import com.spotify.scio.coders.Implicits._
+
 
 class FileDownloadDoFnTest extends PipelineSpec {
 

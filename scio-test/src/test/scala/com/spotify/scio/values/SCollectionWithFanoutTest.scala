@@ -21,7 +21,7 @@ import com.spotify.scio.testing.PipelineSpec
 import com.twitter.algebird.{Aggregator, Semigroup}
 
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 class SCollectionWithFanoutTest extends PipelineSpec {
 

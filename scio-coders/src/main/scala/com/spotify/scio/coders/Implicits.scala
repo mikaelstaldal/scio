@@ -18,7 +18,9 @@
 package com.spotify.scio.coders
 
 trait Implicits
-  extends ScalaCoders
+  extends AtomCoders
+  with TupleCoders
+  with ScalaCoders
   with AvroCoders
   with ProtobufCoders
   with JavaCoders

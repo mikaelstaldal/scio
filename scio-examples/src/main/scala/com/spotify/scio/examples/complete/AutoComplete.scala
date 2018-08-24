@@ -31,7 +31,7 @@ import org.joda.time.Duration
 
 import scala.collection.JavaConverters._
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 /*
 SBT

@@ -25,7 +25,7 @@ import com.spotify.sparkey.{IndexHeader, LogHeader, Sparkey, SparkeyReader}
 
 import scala.collection.JavaConverters._
 import scala.io.Source
-import com.spotify.scio.coders.Implicits._
+
 
 // =======================================================================
 // Test jobs

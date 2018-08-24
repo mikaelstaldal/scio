@@ -20,7 +20,7 @@ package com.spotify.scio.extra
 import com.spotify.scio.ScioContext
 import com.spotify.scio.io.{Tap, TextTap}
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 import com.spotify.scio.testing.TestIO
 import com.spotify.scio.util.ScioUtil
 import com.spotify.scio.values.SCollection

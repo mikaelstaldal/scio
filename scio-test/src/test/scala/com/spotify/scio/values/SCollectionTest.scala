@@ -36,7 +36,7 @@ import org.joda.time.{DateTimeConstants, Duration, Instant}
 
 import scala.collection.JavaConverters._
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 class SCollectionTest extends PipelineSpec {
 

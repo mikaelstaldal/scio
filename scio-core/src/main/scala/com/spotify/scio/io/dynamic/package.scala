@@ -18,7 +18,7 @@
 package com.spotify.scio.io
 
 import com.spotify.scio.values.SCollection
-import com.spotify.scio.coders.Implicits._
+
 import org.apache.avro.Schema
 import org.apache.avro.specific.SpecificRecordBase
 import org.apache.beam.sdk.io.FileBasedSink.DynamicDestinations

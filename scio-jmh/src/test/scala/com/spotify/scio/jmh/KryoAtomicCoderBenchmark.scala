@@ -36,7 +36,7 @@ final case class User(id: UserId, username: String, email: String)
 final case class SpecializedUser(id: UserId, username: String, email: String)
 final case class SpecializedUserForDerived(id: UserId, username: String, email: String)
 
-import com.spotify.scio.coders.Implicits._
+
 
 @BenchmarkMode(Array(Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.NANOSECONDS)

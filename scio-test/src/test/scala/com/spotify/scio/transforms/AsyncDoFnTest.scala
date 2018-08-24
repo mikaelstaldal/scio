@@ -27,7 +27,7 @@ import org.apache.beam.sdk.Pipeline.PipelineExecutionException
 import org.apache.beam.sdk.transforms.{DoFn, ParDo}
 
 import scala.concurrent.{ExecutionContext, Future}
-import com.spotify.scio.coders.Implicits._
+
 
 class AsyncDoFnTest extends PipelineSpec {
 

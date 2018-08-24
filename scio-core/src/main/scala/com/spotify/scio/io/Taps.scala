@@ -21,7 +21,7 @@ import com.google.api.services.bigquery.model.TableReference
 import com.google.protobuf.Message
 import com.spotify.scio.avro.types.AvroType
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 import com.spotify.scio.avro.types.AvroType.HasAvroAnnotation
 import com.spotify.scio.bigquery.types.BigQueryType
 import com.spotify.scio.bigquery.types.BigQueryType.HasAnnotation
@@ -55,7 +55,7 @@ trait Taps {
     val avroT = AvroType[T]
 
     import scala.concurrent.ExecutionContext.Implicits.global
-    implicit val coder = genericRecordCoder(avroT.schema)
+    implicit val coder = Coder.genericRecordCoder(avroT.schema)
     avroFile[GenericRecord](path, avroT.schema)
       .map(_.map(avroT.fromGenericRecord))
   }

@@ -25,7 +25,7 @@ import org.joda.time.format.DateTimeFormat
 import org.joda.time.{Duration, Instant}
 
 import scala.util.control.NonFatal
-import com.spotify.scio.coders.Implicits._
+
 
 /*
 SBT

@@ -22,7 +22,7 @@ import java.util.{Map => JMap}
 
 import com.spotify.scio.util.ClosureCleaner
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 import com.spotify.scio.values.SCollection
 import org.apache.beam.sdk.testing.PAssert
 import org.apache.beam.sdk.testing.PAssert.{IterableAssert, SingletonAssert}

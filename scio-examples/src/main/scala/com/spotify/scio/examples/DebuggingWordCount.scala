@@ -32,7 +32,7 @@ import org.apache.beam.sdk.testing.PAssert
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
-import com.spotify.scio.coders.Implicits._
+
 
 object DebuggingWordCount {
 

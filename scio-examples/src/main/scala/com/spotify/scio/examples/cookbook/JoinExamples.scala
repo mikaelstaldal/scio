@@ -26,7 +26,7 @@ package com.spotify.scio.examples.cookbook
 import com.spotify.scio.bigquery._
 import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
-import com.spotify.scio.coders.Implicits._
+
 
 // ## Utilities used in all examples
 object JoinUtil {

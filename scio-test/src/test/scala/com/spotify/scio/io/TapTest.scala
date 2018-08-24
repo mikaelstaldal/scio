@@ -36,7 +36,7 @@ import org.apache.commons.io.{FileUtils, IOUtils}
 
 import scala.concurrent.Future
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 trait TapSpec extends PipelineSpec {
   def verifyTap[T: Coder](tap: Tap[T], expected: Set[T]): Unit = {

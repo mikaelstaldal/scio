@@ -42,7 +42,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.util.Random
 
-import com.spotify.scio.coders.Implicits._
+
 
 // This file is symlinked to scio-bench/src/main/scala/com/spotify/ScioBenchmark.scala so that it
 // can run with past Scio releases.

@@ -22,7 +22,7 @@ import com.google.bigtable.v2.Mutation.MutationCase
 import com.google.protobuf.ByteString
 import com.spotify.scio.values.SCollection
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 import org.scalatest.matchers.{MatchResult, Matcher}
 
 import scala.language.implicitConversions

@@ -33,7 +33,7 @@ import org.tensorflow.example.Example
 import scala.io.Source
 
 import com.spotify.scio.coders._
-import com.spotify.scio.coders.Implicits._
+
 
 private object TFGraphJob {
 

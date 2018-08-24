@@ -24,7 +24,7 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.{GenericData, GenericRecord}
 
 import scala.collection.JavaConverters._
-import com.spotify.scio.coders.Implicits._
+
 
 // Read and write specific and generic Avro records
 object AvroExample {

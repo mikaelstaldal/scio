@@ -20,7 +20,7 @@ package com.spotify.scio.values
 import com.spotify.scio.testing.PipelineSpec
 import com.spotify.scio.util.random.RandomSamplerUtils
 import com.twitter.algebird.Aggregator
-import com.spotify.scio.coders.Implicits._
+
 
 class PairSCollectionFunctionsTest extends PipelineSpec {
 

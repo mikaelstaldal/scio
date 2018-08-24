@@ -28,7 +28,7 @@ import org.apache.commons.io.FileUtils
 import scala.collection.JavaConverters._
 import scala.io.Source
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 object JsonJob {
   def main(cmdlineArgs: Array[String]): Unit = {

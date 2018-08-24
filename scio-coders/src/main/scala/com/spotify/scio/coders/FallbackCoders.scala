@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Spotify AB.
+ * Copyright 2016 Spotify AB.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,10 @@
  * under the License.
  */
 
-package com.spotify.scio.values
+package com.spotify.scio.coders
 
-import com.spotify.scio.testing.PipelineSpec
-
-
-class MutationTest extends PipelineSpec {
-  "BigDecimal serialization" should "not cause mutation exceptions" in {
-    runWithContext { sc =>
-      val expected = (1 to 10).map(_ * 2).toList
-      val result = sc.parallelize(1 to 10).map(BigDecimal(_))
-        .map(_ * 2)
-        .map(_.toInt)
-      result should containInAnyOrder(expected)
-    }
-  }
+trait LowPriorityFallbackCoder extends LowPriorityCoderDerivation {
+  import language.experimental.macros
+  implicit def lowPriorityImplicitFallback[T](implicit lp: shapeless.LowPriority): Coder[T] =
+    macro com.spotify.scio.coders.CoderMacros.issueFallbackWarning[T]
 }

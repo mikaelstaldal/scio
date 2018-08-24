@@ -30,7 +30,7 @@ import org.apache.commons.io.FileUtils
 import org.joda.time.{Duration, Instant}
 
 import scala.collection.JavaConverters._
-import com.spotify.scio.coders.Implicits._
+
 
 class DynamicFileTest extends PipelineSpec {
 

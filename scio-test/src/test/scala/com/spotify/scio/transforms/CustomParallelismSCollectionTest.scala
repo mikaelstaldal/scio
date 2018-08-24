@@ -20,7 +20,7 @@ package com.spotify.scio.transforms
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.spotify.scio.testing.PipelineSpec
-import com.spotify.scio.coders.Implicits._
+
 
 class CustomParallelismSCollectionTest extends PipelineSpec {
   "CustomParallelismSCollection" should "support filterWithParallelism()" in {

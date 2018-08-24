@@ -19,7 +19,7 @@ package com.spotify.scio.values
 
 import com.spotify.scio.testing.PipelineSpec
 import com.twitter.algebird.Aggregator
-import com.spotify.scio.coders.Implicits._
+
 
 class SCollectionWithHotKeyFanoutTest extends PipelineSpec {
 

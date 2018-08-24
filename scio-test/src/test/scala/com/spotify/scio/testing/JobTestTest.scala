@@ -28,7 +28,7 @@ import com.spotify.scio.util.MockedPrintStream
 import org.apache.avro.generic.GenericRecord
 import org.apache.beam.sdk.{io => gio}
 import org.scalatest.exceptions.TestFailedException
-import com.spotify.scio.coders.Implicits._
+
 
 import scala.io.Source
 

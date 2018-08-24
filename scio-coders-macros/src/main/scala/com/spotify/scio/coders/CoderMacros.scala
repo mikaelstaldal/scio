@@ -79,8 +79,7 @@ private[coders] object CoderMacros {
         s"""
         |
         |  Scio will use a fallback Kryo coder instead.
-        |  Most types should be supported out of the box by simply importing
-        |  `com.spotify.scio.coders.Implicits._`.
+        |
         |  If a type is not supported, consider implementing your own implicit Coder for this type.
         |  It is recommended to declare this Coder in your class companion object:
         |

@@ -49,7 +49,7 @@ import scala.concurrent.Future
 import scala.reflect.ClassTag
 
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 private[this] abstract class PredictDoFn[T, V, M <: Model[_]](
   fetchOp: Seq[String],

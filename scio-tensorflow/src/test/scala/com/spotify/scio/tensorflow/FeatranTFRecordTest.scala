@@ -25,7 +25,7 @@ import org.tensorflow.example.Example
 import org.tensorflow.metadata.v0.{FixedShape, Schema, SparseFeature}
 
 import com.spotify.scio.coders._
-import com.spotify.scio.coders.Implicits._
+
 
 case class TrainingPoint(x1: Double, label: Double)
 

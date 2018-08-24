@@ -20,7 +20,7 @@ package com.spotify.scio.values
 import com.spotify.scio.testing.PipelineSpec
 import org.apache.beam.sdk.transforms.View
 import org.joda.time.{DateTimeConstants, Duration, Instant}
-import com.spotify.scio.coders.Implicits._
+
 
 class SCollectionWithSideInputTest extends PipelineSpec {
 

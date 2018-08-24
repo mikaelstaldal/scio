@@ -27,7 +27,7 @@ import com.spotify.scio.examples.common.ExampleData
 import com.spotify.scio.tensorflow._
 import org.tensorflow.example.Example
 import shapeless.datatype.tensorflow._
-import com.spotify.scio.coders.Implicits._
+
 
 object ShapelessTensorFlowExample {
   // Define case class representation of TensorFlow `Example`

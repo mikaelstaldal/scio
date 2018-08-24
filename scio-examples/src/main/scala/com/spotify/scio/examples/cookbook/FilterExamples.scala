@@ -29,7 +29,7 @@ import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 
 import scala.collection.JavaConverters._
-import com.spotify.scio.coders.Implicits._
+
 
 // Intermediate record type
 case class Record(year: Long, month: Long, day: Long, meanTemp: Double)

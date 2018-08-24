@@ -22,7 +22,7 @@ import java.nio.file.Files
 import com.google.protobuf.Timestamp
 import com.spotify.scio.ScioContext
 import com.spotify.scio.testing.PipelineSpec
-import com.spotify.scio.coders.Implicits._
+
 
 class FileFormatTest extends PipelineSpec {
 

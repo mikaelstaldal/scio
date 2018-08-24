@@ -19,7 +19,7 @@ package com.spotify.scio.io
 
 import com.spotify.scio.values.SCollection
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 import scala.collection.concurrent.TrieMap
 
 private[scio] object InMemorySink {

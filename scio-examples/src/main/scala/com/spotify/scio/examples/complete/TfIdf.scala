@@ -33,7 +33,7 @@ import org.apache.beam.sdk.io.FileSystems
 
 import scala.collection.JavaConverters._
 import scala.io.Source
-import com.spotify.scio.coders.Implicits._
+
 
 object TfIdf {
 

@@ -18,7 +18,7 @@
 package com.spotify.scio.util
 
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 import java.util.{Iterator => JIterator}
 

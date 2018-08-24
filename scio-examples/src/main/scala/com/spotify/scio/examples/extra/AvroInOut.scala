@@ -20,7 +20,7 @@ package com.spotify.scio.examples.extra
 
 import com.spotify.scio._
 import com.spotify.scio.avro.{Account, TestRecord}
-import com.spotify.scio.coders.Implicits._
+
 
 object AvroInOut {
   def main(cmdlineArgs: Array[String]): Unit = {

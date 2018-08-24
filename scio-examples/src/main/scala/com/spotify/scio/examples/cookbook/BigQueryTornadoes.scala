@@ -30,7 +30,7 @@ import com.spotify.scio.bigquery._
 import com.spotify.scio.examples.common.ExampleData
 
 import scala.collection.JavaConverters._
-import com.spotify.scio.coders.Implicits._
+
 
 object BigQueryTornadoes {
   def main(cmdlineArgs: Array[String]): Unit = {

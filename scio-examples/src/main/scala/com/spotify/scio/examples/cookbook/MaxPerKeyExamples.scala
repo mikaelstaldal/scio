@@ -29,7 +29,7 @@ import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 
 import scala.collection.JavaConverters._
-import com.spotify.scio.coders.Implicits._
+
 
 object MaxPerKeyExamples {
   def main(cmdlineArgs: Array[String]): Unit = {

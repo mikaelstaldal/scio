@@ -22,7 +22,7 @@
 package com.spotify.scio.examples.extra
 
 import com.spotify.scio._
-import com.spotify.scio.coders.Implicits._
+
 
 object MetricsExample {
 

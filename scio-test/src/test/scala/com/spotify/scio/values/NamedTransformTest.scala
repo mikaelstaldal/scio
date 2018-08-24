@@ -22,7 +22,7 @@ import com.spotify.scio.util.MultiJoin
 import org.apache.beam.sdk.Pipeline
 import org.apache.beam.sdk.runners.TransformHierarchy
 import org.apache.beam.sdk.values.PCollection
-import com.spotify.scio.coders.Implicits._
+
 
 class NamedTransformTest extends PipelineSpec {
 

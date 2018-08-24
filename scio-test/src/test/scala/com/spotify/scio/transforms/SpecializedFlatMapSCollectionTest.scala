@@ -18,7 +18,7 @@
 package com.spotify.scio.transforms
 
 import com.spotify.scio.testing.PipelineSpec
-import com.spotify.scio.coders.Implicits._
+
 
 class SpecializedFlatMapSCollectionTest extends PipelineSpec {
 

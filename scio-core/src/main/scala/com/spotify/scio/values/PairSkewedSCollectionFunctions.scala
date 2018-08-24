@@ -18,7 +18,7 @@
 package com.spotify.scio.values
 
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 import com.twitter.algebird.{CMS, CMSHasher}
 
 private final case class Partitions[K, V](hot: SCollection[(K, V)], chill: SCollection[(K, V)])

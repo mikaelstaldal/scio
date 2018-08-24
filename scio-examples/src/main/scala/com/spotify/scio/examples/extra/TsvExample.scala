@@ -20,7 +20,7 @@ package com.spotify.scio.examples.extra
 import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 import org.apache.beam.sdk.{io => gio}
-import com.spotify.scio.coders.Implicits._
+
 
 // Example: Word Count Example writing to TSV file
 // Usage:

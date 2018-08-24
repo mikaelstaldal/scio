@@ -28,7 +28,7 @@ import com.spotify.scio.bigquery._
 import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 import org.joda.time.Instant
-import com.spotify.scio.coders.Implicits._
+
 
 object DistCacheExample {
   def main(cmdlineArgs: Array[String]): Unit = {

@@ -22,7 +22,7 @@ import java.nio.file.Files
 import com.google.common.base.Charsets
 import com.google.common.io.{Files => GFiles}
 import com.spotify.scio.testing._
-import com.spotify.scio.coders.Implicits._
+
 
 class PipeDoFnTest extends PipelineSpec {
 

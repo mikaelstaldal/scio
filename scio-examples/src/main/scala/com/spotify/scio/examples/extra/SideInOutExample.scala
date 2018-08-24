@@ -33,7 +33,7 @@ package com.spotify.scio.examples.extra
 import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 import com.spotify.scio.values.SideOutput
-import com.spotify.scio.coders.Implicits._
+
 
 object SideInOutExample {
   def main(cmdlineArgs: Array[String]): Unit = {

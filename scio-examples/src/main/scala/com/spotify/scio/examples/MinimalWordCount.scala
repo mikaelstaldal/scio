@@ -26,7 +26,7 @@ package com.spotify.scio.examples
 
 import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
-import com.spotify.scio.coders.Implicits._
+
 
 object MinimalWordCount {
   def main(cmdlineArgs: Array[String]): Unit = {

@@ -18,7 +18,7 @@
 package com.spotify.scio.values
 
 import com.spotify.scio.coders.{Coder, CoderMaterializer}
-import com.spotify.scio.coders.Implicits._
+
 
 import java.lang.{Iterable => JIterable}
 import java.util.{Map => JMap}

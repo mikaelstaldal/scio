@@ -22,7 +22,7 @@ import org.apache.beam.sdk.util.SerializableUtils
 import org.scalatest._
 
 import scala.io.Source
-import com.spotify.scio.coders.Implicits._
+
 
 class SerializationTest extends FlatSpec with Matchers {
 

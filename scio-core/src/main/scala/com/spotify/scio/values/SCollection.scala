@@ -20,7 +20,7 @@
 package com.spotify.scio.values
 
 import com.spotify.scio.coders.{Coder, CoderMaterializer}
-import com.spotify.scio.coders.Implicits._
+
 
 import java.io.PrintStream
 import java.lang.{Boolean => JBoolean, Double => JDouble, Iterable => JIterable}
@@ -979,7 +979,7 @@ sealed trait SCollection[T] extends PCollectionWrapper[T] {
       if (!isCheckpoint) context.testOut(ObjectFileIO(path))(this)
       saveAsInMemoryTap
     } else {
-      implicit val avroCoder = genericRecordCoder(AvroBytesUtil.schema)
+      implicit val avroCoder = Coder.genericRecordCoder(AvroBytesUtil.schema)
       this
         .parDo(new AvroEncodeDoFn[T](CoderMaterializer.beam(context, elemCoder)))
         .saveAsAvroFile(path, numShards, AvroBytesUtil.schema, suffix, metadata = metadata)

@@ -32,7 +32,7 @@ import com.spotify.scio.avro.types.AvroType.HasAvroAnnotation
 import com.spotify.scio.bigquery._
 import com.spotify.scio.bigquery.types.BigQueryType.HasAnnotation
 import com.spotify.scio.coders.{AvroBytesUtil, KryoAtomicCoder, KryoOptions, Coder, CoderMaterializer}
-import com.spotify.scio.coders.Implicits._
+
 import com.spotify.scio.io.Tap
 import com.spotify.scio.metrics.Metrics
 import com.spotify.scio.options.ScioOptions
@@ -528,7 +528,7 @@ class ScioContext private[scio] (val options: PipelineOptions,
       this.getTestInput(ObjectFileIO[T](path))
     } else {
       val coder = Coder[T]
-      val recCoder = genericRecordCoder(AvroBytesUtil.schema)
+      val recCoder = Coder.genericRecordCoder(AvroBytesUtil.schema)
       this.avroFile[GenericRecord](path, AvroBytesUtil.schema)(classTag[GenericRecord], recCoder)
         .parDo(new AvroDecodeDoFn[T](CoderMaterializer.beam(context, coder)))
         .setName(path)

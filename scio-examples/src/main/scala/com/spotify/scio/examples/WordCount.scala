@@ -27,7 +27,7 @@ package com.spotify.scio.examples
 import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 import org.slf4j.LoggerFactory
-import com.spotify.scio.coders.Implicits._
+
 
 object WordCount {
 

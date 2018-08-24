@@ -36,7 +36,7 @@ import com.spotify.scio.examples.common.ExampleData
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow
 import org.joda.time.{DateTimeZone, Duration, Instant}
 import org.joda.time.format.DateTimeFormat
-import com.spotify.scio.coders.Implicits._
+
 
 object HourlyTeamScore {
 

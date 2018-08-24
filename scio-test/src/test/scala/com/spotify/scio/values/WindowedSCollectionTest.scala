@@ -19,7 +19,7 @@ package com.spotify.scio.values
 
 import com.spotify.scio.testing.PipelineSpec
 import org.joda.time.Instant
-import com.spotify.scio.coders.Implicits._
+
 
 class WindowedSCollectionTest extends PipelineSpec {
 

@@ -21,7 +21,7 @@ import com.spotify.scio._
 import com.spotify.scio.examples.common.ExampleData
 import com.spotify.scio.tensorflow._
 import shapeless.datatype.tensorflow._
-import com.spotify.scio.coders.Implicits._
+
 
 
 /**

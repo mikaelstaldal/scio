@@ -21,7 +21,7 @@ import java.sql.{Driver, PreparedStatement, ResultSet}
 
 import com.spotify.scio.io.Tap
 import com.spotify.scio.coders.{Coder, CoderMaterializer}
-import com.spotify.scio.coders.Implicits._
+
 import com.spotify.scio.testing.TestIO
 import com.spotify.scio.values.SCollection
 import org.apache.beam.sdk.io.jdbc.JdbcIO.DataSourceConfiguration

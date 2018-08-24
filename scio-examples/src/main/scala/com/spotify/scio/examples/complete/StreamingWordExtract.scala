@@ -25,7 +25,7 @@ import org.apache.beam.examples.common.{ExampleOptions, ExampleUtils}
 import org.apache.beam.sdk.options.StreamingOptions
 
 import scala.collection.JavaConverters._
-import com.spotify.scio.coders.Implicits._
+
 
 /*
 SBT

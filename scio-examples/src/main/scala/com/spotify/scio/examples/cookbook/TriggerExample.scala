@@ -28,7 +28,7 @@ import org.apache.beam.sdk.transforms.windowing._
 import org.joda.time.{DateTimeConstants, Duration, Instant}
 
 import scala.util.Try
-import com.spotify.scio.coders.Implicits._
+
 
 /*
 SBT

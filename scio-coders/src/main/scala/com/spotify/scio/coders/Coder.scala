@@ -140,40 +140,8 @@ sealed trait CoderGrammar {
     Record(cs)
 }
 
-sealed trait AtomCoders extends LowPriorityFallbackCoder {
-  import org.apache.beam.sdk.coders.{ Coder => BCoder, _}
-  import Coder.beam
-  implicit def byteCoder: Coder[Byte] = beam(ByteCoder.of().asInstanceOf[BCoder[Byte]])
-  implicit def byteArrayCoder: Coder[Array[Byte]] = beam(ByteArrayCoder.of())
-  // implicit def bytebufferCoder: Coder[java.nio.ByteBuffer] = beam(???)
-  implicit def stringCoder: Coder[String] = beam(StringUtf8Coder.of())
-  implicit def intCoder: Coder[Int] = beam(VarIntCoder.of().asInstanceOf[BCoder[Int]])
-  implicit def doubleCoder: Coder[Double] = beam(DoubleCoder.of().asInstanceOf[BCoder[Double]])
-  implicit def floatCoder: Coder[Float] = beam(FloatCoder.of().asInstanceOf[BCoder[Float]])
-  implicit def unitCoder: Coder[Unit] = beam(UnitCoder)
-  implicit def nothingCoder: Coder[Nothing] = beam[Nothing](NothingCoder)
-  implicit def booleanCoder: Coder[Boolean] = beam(BooleanCoder.of().asInstanceOf[BCoder[Boolean]])
-  implicit def longCoder: Coder[Long] = beam(BigEndianLongCoder.of().asInstanceOf[BCoder[Long]])
-  implicit def bigdecimalCoder: Coder[BigDecimal] =
-    Coder.xmap(beam(BigDecimalCoder.of()))(BigDecimal.apply, _.bigDecimal)
-
-  implicit def optionCoder[T, S[_] <: Option[_]](implicit c: Coder[T]): Coder[S[T]] =
-    Coder.transform(c){ bc => Coder.beam(new OptionCoder[T](bc)) }
-      .asInstanceOf[Coder[S[T]]]
-
-  implicit def noneCoder: Coder[None.type] =
-    optionCoder[Nothing, Option](nothingCoder).asInstanceOf[Coder[None.type]]
-}
-
-sealed trait LowPriorityFallbackCoder extends LowPriorityCoderDerivation {
-  import language.experimental.macros
-  implicit def lowPriorityImplicitFallback[T](implicit lp: shapeless.LowPriority): Coder[T] =
-    macro com.spotify.scio.coders.CoderMacros.issueFallbackWarning[T]
-}
-
 final object Coder
   extends CoderGrammar
-  with AtomCoders
-  with TupleCoders {
+  with Implicits {
   def apply[T](implicit c: Coder[T]): Coder[T] = c
 }

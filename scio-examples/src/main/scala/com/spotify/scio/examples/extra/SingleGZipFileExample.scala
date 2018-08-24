@@ -20,7 +20,7 @@ package com.spotify.scio.examples.extra
 import com.spotify.scio.ContextAndArgs
 import com.spotify.scio.examples.common.ExampleData
 import org.apache.beam.sdk.io.Compression
-import com.spotify.scio.coders.Implicits._
+
 
 object SingleGZipFileExample {
   def main(cmdlineArgs: Array[String]): Unit = {

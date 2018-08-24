@@ -23,7 +23,7 @@ import org.apache.beam.sdk.io.Compression
 import org.apache.beam.sdk.{io => gio}
 import org.tensorflow.example.Example
 
-import com.spotify.scio.coders.Implicits._
+
 
 class TFScioContextFunctions(val self: ScioContext) extends AnyVal {
 

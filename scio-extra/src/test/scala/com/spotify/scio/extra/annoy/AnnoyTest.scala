@@ -24,7 +24,7 @@ import com.spotify.annoy.{ANNIndex, IndexType}
 import com.spotify.scio.ScioContext
 import com.spotify.scio.testing.PipelineSpec
 import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.Implicits._
+
 
 class AnnoyTest extends PipelineSpec {
 

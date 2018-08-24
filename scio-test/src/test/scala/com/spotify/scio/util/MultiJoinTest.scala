@@ -18,7 +18,7 @@
 package com.spotify.scio.util
 
 import com.spotify.scio.testing.PipelineSpec
-import com.spotify.scio.coders.Implicits._
+
 
 class MultiJoinTest extends PipelineSpec {
 

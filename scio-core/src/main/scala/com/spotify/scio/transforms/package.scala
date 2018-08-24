@@ -23,7 +23,7 @@ import java.nio.file.Path
 
 import com.spotify.scio.util._
 import com.spotify.scio.coders.{Coder, CoderMaterializer}
-import com.spotify.scio.coders.Implicits._
+
 import com.spotify.scio.values.SCollection
 import org.apache.beam.sdk.transforms.DoFn.ProcessElement
 import org.apache.beam.sdk.transforms.{DoFn, ParDo}

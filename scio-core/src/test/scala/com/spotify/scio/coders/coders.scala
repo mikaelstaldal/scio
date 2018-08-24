@@ -23,7 +23,7 @@ import org.apache.avro.generic.GenericRecord
 import org.scalatest.{FlatSpec, Matchers, Assertion}
 import com.spotify.scio.values.SCollection
 import com.spotify.scio.ScioContext
-import com.spotify.scio.coders.Implicits._
+
 import scala.reflect.{ClassTag, classTag}
 
 final case class UserId(bytes: Seq[Byte])
