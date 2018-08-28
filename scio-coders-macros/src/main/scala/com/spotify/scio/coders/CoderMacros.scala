@@ -62,8 +62,36 @@ private[coders] object CoderMacros {
     val lowPrio = new shapeless.LowPriorityMacros(c)
     val secondImplicit = lowPrio.secondOpenImplicitTpe
 
+    def stripRefinements(tpe: Type): Option[Type] =
+      tpe match {
+        case RefinedType(parents, _) => Some(parents.head)
+        case _ => None
+      }
+
     val implicitFound =
-      secondImplicit.isDefined
+      secondImplicit match {
+        case Some(tpe) =>
+          import lowPrio.{c => ctx, _}
+          val typeToInfer =
+            appliedType(
+              strictTpe.asInstanceOf[c.universe.Type],
+              appliedType(
+                lowPriorityForTpe.asInstanceOf[c.universe.Type],
+                tpe.asInstanceOf[c.universe.Type]))
+
+          val inf = c.inferImplicitValue(typeToInfer)
+          inf != EmptyTree
+        case _ =>
+          false
+      }
+
+      // println(s"""
+      //   // ---------------- $wtt ----------------
+      //   implicitFound: $implicitFound
+      //   secondImplicit: $secondImplicit
+      //   lowPrio.openImplicitTpe: ${lowPrio.openImplicitTpe}
+      //   // -----
+      // """)
 
     val toReport = (c.enclosingPosition.toString -> wtt.toString)
     val alreadyReported = reported.contains(toReport)
