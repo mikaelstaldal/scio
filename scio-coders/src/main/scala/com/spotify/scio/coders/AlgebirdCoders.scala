@@ -20,8 +20,8 @@ package com.spotify.scio.coders
 import com.twitter.algebird._
 
 trait AlgebirdCoders {
-  implicit def cmsCoder[K]: Coder[CMS[K]] = Coder.fallback
-  implicit def bfCoder[K]: Coder[BF[K]] = Coder.fallback
-  implicit def topKCoder[K]: Coder[TopK[K]] = Coder.fallback
-  implicit def batchedCoder[U]: Coder[Batched[U]] = Coder.fallback
+  implicit def cmsCoder[K]: Coder[CMS[K]] = Coder.kryo
+  implicit def bfCoder[K]: Coder[BF[K]] = Coder.kryo
+  implicit def topKCoder[K]: Coder[TopK[K]] = Coder.kryo
+  implicit def batchedCoder[U]: Coder[Batched[U]] = Coder.kryo
 }

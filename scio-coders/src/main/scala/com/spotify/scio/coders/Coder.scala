@@ -120,7 +120,7 @@ private class RecordCoder[T: ClassTag](
 sealed trait CoderGrammar {
   def beam[T](beam: BCoder[T]): Coder[T] =
     Beam(beam)
-  def fallback[T](implicit ct: ClassTag[T]): Coder[T] =
+  def kryo[T](implicit ct: ClassTag[T]): Coder[T] =
     Fallback[T](ct)
   def transform[A, B](c: Coder[A])(f: BCoder[A] => Coder[B]): Coder[B] =
     Transform(c, f)

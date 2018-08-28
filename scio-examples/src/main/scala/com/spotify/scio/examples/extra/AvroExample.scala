@@ -18,6 +18,7 @@
 package com.spotify.scio.examples.extra
 
 import com.spotify.scio._
+import com.spotify.scio.coders.Coder
 import com.spotify.scio.avro.Account
 import com.spotify.scio.avro.types.AvroType
 import org.apache.avro.Schema
@@ -96,7 +97,7 @@ object AvroExample {
   private def genericOut(sc: ScioContext, args: Args): Unit = {
     // Schema is not serializable and breaks lambda when pulled in from closure
     val schemaString = schema.toString
-    implicit def genericCoder = genericRecordCoder(schema)
+    implicit def genericCoder = Coder.genericRecordCoder(schema)
     sc.parallelize(1 to 100)
       .map[GenericRecord] { i =>
         val r = new GenericData.Record(schema)
@@ -125,7 +126,7 @@ object AvroExample {
   }
 
   private def genericIn(sc: ScioContext, args: Args): Unit = {
-    implicit def genericCoder = genericRecordCoder(schema)
+    implicit def genericCoder = Coder.genericRecordCoder(schema)
     sc.avroFile[GenericRecord](args("input"), schema)
       .map(_.toString)
       .saveAsTextFile(args("output"))

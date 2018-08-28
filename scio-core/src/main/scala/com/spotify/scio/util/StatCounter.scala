@@ -155,5 +155,5 @@ object StatCounter {
 
   // StatCounter is mutable -> use a kryocoder
   implicit def statcounterCoder: Coder[com.spotify.scio.util.StatCounter] =
-    Coder.fallback
+    Coder.kryo
 }

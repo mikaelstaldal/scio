@@ -152,7 +152,7 @@ class KryoAtomicCoderTest extends PipelineSpec {
       .create()
     val sc = ScioContext(options)
 
-    implicit def alwaysUseKryo[A: ClassTag]: Coder[A] = Coder.fallback[A]
+    implicit def alwaysUseKryo[A: ClassTag]: Coder[A] = Coder.kryo[A]
 
     sc.parallelize(1 to 10).map(x => RecordB(x.toString, x))
 
@@ -165,7 +165,7 @@ class KryoAtomicCoderTest extends PipelineSpec {
   }
 
   it should "support kryo registrar with custom options" in {
-    implicit val recordBfallbackCoder = Coder.fallback[RecordB]
+    implicit val recordBfallbackCoder = Coder.kryo[RecordB]
     // ensure we get a different kryo instance from object pool.
     val options = PipelineOptionsFactory
       .fromArgs("--kryoReferenceTracking=false", "--kryoRegistrationRequired=false")

@@ -52,7 +52,7 @@ private[sparkey] object SparkeyUri {
     }
   def extensions: Seq[String] = Seq(".spi", ".spl")
 
-  implicit def coderSparkeyURI: Coder[SparkeyUri] = Coder.fallback[SparkeyUri]
+  implicit def coderSparkeyURI: Coder[SparkeyUri] = Coder.kryo[SparkeyUri]
 }
 
 private class LocalSparkeyUri(val basePath: String) extends SparkeyUri {

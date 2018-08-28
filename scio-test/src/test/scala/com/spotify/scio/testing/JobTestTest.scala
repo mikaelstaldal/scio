@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap
 import com.google.datastore.v1.Entity
 import com.google.datastore.v1.client.DatastoreHelper.{makeKey, makeValue}
 import com.spotify.scio._
+import com.spotify.scio.coders.Coder
 import com.spotify.scio.avro.AvroUtils.{newGenericRecord, newSpecificRecord}
 import com.spotify.scio.avro.{AvroUtils, TestRecord}
 import com.spotify.scio.bigquery._
@@ -56,7 +57,7 @@ object SpecificAvroFileJob {
 object GenericAvroFileJob {
   def main(cmdlineArgs: Array[String]): Unit = {
     val (sc, args) = ContextAndArgs(cmdlineArgs)
-    implicit val coder = genericRecordCoder(AvroUtils.schema)
+    implicit val coder = Coder.genericRecordCoder(AvroUtils.schema)
     sc.avroFile[GenericRecord](args("input"), AvroUtils.schema)
       .saveAsAvroFile(args("output"))
     sc.close()
@@ -248,7 +249,7 @@ class JobTestTest extends PipelineSpec {
   }
 
   def testGenericAvroFileJob(xs: Seq[GenericRecord]): Unit = {
-    implicit val coder = slowGenericRecordCoder
+    implicit val coder = Coder.slowGenericRecordCoder
     JobTest[GenericAvroFileJob.type]
       .args("--input=in.avro", "--output=out.avro")
       .input(AvroIO("in.avro"), (1 to 3).map(newGenericRecord))

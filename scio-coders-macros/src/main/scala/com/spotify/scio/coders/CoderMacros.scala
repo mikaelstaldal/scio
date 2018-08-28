@@ -61,7 +61,9 @@ private[coders] object CoderMacros {
     // Use shapeless magic to find out if a proper implicit is actually available
     val lowPrio = new shapeless.LowPriorityMacros(c)
     val secondImplicit = lowPrio.secondOpenImplicitTpe
-    val implicitFound = lowPrio.openImplicitTpe == secondImplicit
+
+    val implicitFound =
+      secondImplicit.isDefined
 
     val toReport = (c.enclosingPosition.toString -> wtt.toString)
     val alreadyReported = reported.contains(toReport)
@@ -96,11 +98,11 @@ private[coders] object CoderMacros {
         |
         |  If you do want to use a Kryo coder, be explicit about it:
         |
-        |       implicit def coder${typeName}: Coder[$fullType] = Coder.fallback[$fullType]
+        |       implicit def coder${typeName}: Coder[$fullType] = Coder.kryo[$fullType]
         |
         """
 
-    val fallback = q"""_root_.com.spotify.scio.coders.Coder.fallback[$wtt]"""
+    val fallback = q"""_root_.com.spotify.scio.coders.Coder.kryo[$wtt]"""
 
     (verbose, alreadyReported) match {
       case _ if implicitFound =>

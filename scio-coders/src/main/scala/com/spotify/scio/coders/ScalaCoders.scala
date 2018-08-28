@@ -177,7 +177,7 @@ trait ScalaCoders {
   implicit def iterableCoder[T: Coder]: Coder[Iterable[T]] =
     Coder.transform(Coder[T]){ bc => Coder.beam(new IterableCoder[T](bc)) }
 
-  implicit def throwableCoder[T <: Throwable : ClassTag]: Coder[T] = Coder.fallback[T]
+  implicit def throwableCoder[T <: Throwable : ClassTag]: Coder[T] = Coder.kryo[T]
 
   // specialized coder. Since `::` is a case class, Magnolia would derive an incorrect one...
   implicit def listCoder[T: Coder]: Coder[List[T]] =

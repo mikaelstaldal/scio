@@ -67,7 +67,7 @@ trait TapSpec extends PipelineSpec {
 class TapTest extends TapSpec {
 
   val schema = newGenericRecord(1).getSchema
-  implicit val coder = genericRecordCoder(schema)
+  implicit val coder = Coder.genericRecordCoder(schema)
 
   private def makeRecords(sc: ScioContext) =
     sc.parallelize(Seq(1, 2, 3))

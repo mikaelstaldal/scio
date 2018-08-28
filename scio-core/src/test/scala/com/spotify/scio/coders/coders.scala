@@ -35,13 +35,9 @@ final case class TA(anInt: Int, aString: String) extends Top
 final case class TB(anDouble: Double) extends Top
 
 case class DummyCC(s: String)
-
 case class ParameterizedDummy[A](value: A)
-
 case class MultiParameterizedDummy[A, B](valuea: A, valueb: B)
-
 object TestObject
-
 case class CaseClassWithExplicitCoder(i: Int, s: String)
 object CaseClassWithExplicitCoder {
   import org.apache.beam.sdk.coders.{AtomicCoder, StringUtf8Coder, VarIntCoder}
@@ -82,7 +78,7 @@ class CodersTest extends FlatSpec with Matchers {
   }
 
   def checkNotFallback[T: ClassTag](t: T)(implicit C: Coder[T], eq: Equality[T]): Assertion = {
-    C should !== (Coder.fallback[T])
+    C should !== (Coder.kryo[T])
     check[T](t)(C, eq)
   }
 
@@ -97,14 +93,11 @@ class CodersTest extends FlatSpec with Matchers {
     val s: Seq[String] = (1 to 10).toSeq.map(_.toString)
     val m = s.map{ v => v.toString -> v }.toMap
 
-    // val ccc = Coder[String]
-    // implicit val ddd = seqCoder(ccc)
-
     checkNotFallback(nil)
-    // checkNotFallback(s)
-    // checkNotFallback(s.toList)
-    // checkNotFallback(m)
-    // checkNotFallback(s.toSet)
+    checkNotFallback(s)
+    checkNotFallback(s.toList)
+    checkNotFallback(m)
+    checkNotFallback(s.toSet)
   }
 
   it should "support Java collections" in {
@@ -136,7 +129,7 @@ class CodersTest extends FlatSpec with Matchers {
     checkSer[Int]
     checkSer[String]
     checkSer[List[Int]]
-    checkSer(Coder.fallback[Int])
+    checkSer(Coder.kryo[Int])
     checkSer(Coder.gen[(Int, Int)])
     checkSer(Coder.gen[DummyCC])
     checkSer[com.spotify.scio.avro.User]
@@ -149,7 +142,7 @@ class CodersTest extends FlatSpec with Matchers {
   it should "support Avro's GenericRecord" in {
     val schema = Avro.user.getSchema
     val record: GenericRecord = Avro.user
-    checkNotFallback(record)(classTag[GenericRecord], genericRecordCoder(schema), Avro.eq)
+    checkNotFallback(record)(classTag[GenericRecord], Coder.genericRecordCoder(schema), Avro.eq)
   }
 
   it should "derive coders for product types" in {
@@ -169,8 +162,8 @@ class CodersTest extends FlatSpec with Matchers {
     checkNotFallback(ta)
     checkNotFallback(tb)
     checkNotFallback((123, "hello", ta, tb, List(("bar", 1, "foo"))))
-
   }
+
 
   it should "support all the already supported types" in {
     import org.joda.time._
