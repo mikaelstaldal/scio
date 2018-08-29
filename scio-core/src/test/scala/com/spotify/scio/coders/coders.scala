@@ -58,6 +58,9 @@ object CaseClassWithExplicitCoder {
     })
 }
 
+case class NestedB(x: Int)
+case class NestedA(nb: NestedB)
+
 class CodersTest extends FlatSpec with Matchers {
 
   val userId = UserId(Array[Byte](1, 2, 3, 4))
@@ -133,6 +136,7 @@ class CodersTest extends FlatSpec with Matchers {
     checkSer(Coder.gen[(Int, Int)])
     checkSer(Coder.gen[DummyCC])
     checkSer[com.spotify.scio.avro.User]
+    checkSer[NestedA]
   }
 
   it should "support Avro's SpecificRecordBase" in {

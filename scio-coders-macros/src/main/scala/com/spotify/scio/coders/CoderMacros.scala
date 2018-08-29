@@ -48,7 +48,7 @@ private[coders] object CoderMacros {
 
   // scalastyle:off method.length
   def issueFallbackWarning[T: c.WeakTypeTag](
-    c: whitebox.Context)(lp: c.Expr[shapeless.LowPriority]): c.Tree = {
+    c: whitebox.Context): c.Tree = {
     import c.universe._
     val wtt = weakTypeOf[T]
     val TypeRef(pre, sym, args) = wtt
@@ -57,41 +57,6 @@ private[coders] object CoderMacros {
     val typeName = sym.name
     val params = args.headOption.map { _ => args.mkString("[", ",", "]") }.getOrElse("")
     val fullType = typeName + params
-
-    // Use shapeless magic to find out if a proper implicit is actually available
-    val lowPrio = new shapeless.LowPriorityMacros(c)
-    val secondImplicit = lowPrio.secondOpenImplicitTpe
-
-    def stripRefinements(tpe: Type): Option[Type] =
-      tpe match {
-        case RefinedType(parents, _) => Some(parents.head)
-        case _ => None
-      }
-
-    val implicitFound =
-      secondImplicit match {
-        case Some(tpe) =>
-          import lowPrio.{c => ctx, _}
-          val typeToInfer =
-            appliedType(
-              strictTpe.asInstanceOf[c.universe.Type],
-              appliedType(
-                lowPriorityForTpe.asInstanceOf[c.universe.Type],
-                tpe.asInstanceOf[c.universe.Type]))
-
-          val inf = c.inferImplicitValue(typeToInfer)
-          inf != EmptyTree
-        case _ =>
-          false
-      }
-
-      // println(s"""
-      //   // ---------------- $wtt ----------------
-      //   implicitFound: $implicitFound
-      //   secondImplicit: $secondImplicit
-      //   lowPrio.openImplicitTpe: ${lowPrio.openImplicitTpe}
-      //   // -----
-      // """)
 
     val toReport = (c.enclosingPosition.toString -> wtt.toString)
     val alreadyReported = reported.contains(toReport)
@@ -133,18 +98,14 @@ private[coders] object CoderMacros {
     val fallback = q"""_root_.com.spotify.scio.coders.Coder.kryo[$wtt]"""
 
     (verbose, alreadyReported) match {
-      case _ if implicitFound =>
-        c.abort(c.enclosingPosition,
-          s"A proper implicit was found for $wtt")
       case (false, false) =>
         c.echo(c.enclosingPosition, shortMessage.stripMargin)
         fallback
-      case (true, _) =>
+      case (true, false) =>
         c.echo(c.enclosingPosition, longMessage.stripMargin)
         verbose = false
         fallback
       case (_, _) =>
-        c.echo(c.enclosingPosition, s"Using fallback for $wtt")
         fallback
     }
   }
@@ -159,11 +120,6 @@ private[coders] object CoderMacros {
     if(wtt <:< typeOf[Iterable[_]]) {
       c.abort(c.enclosingPosition,
         s"Automatic coder derivation can't derive a Coder for $wtt <: Seq")
-    }
-
-    if(wtt.toString.startsWith("java")) {
-      c.abort(c.enclosingPosition,
-        s"Automatic coder derivation can't derive a Coder for java classes")
     }
 
     val magTree = magnolia.Magnolia.gen[T](c)
