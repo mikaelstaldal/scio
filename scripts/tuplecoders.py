@@ -23,7 +23,7 @@ import textwrap
 # Utilities
 
 def mkVals(n):
-    return list(string.uppercase[:n])
+    return list(string.uppercase.replace('F', '')[:n])
 
 
 def mkTypes(n):
