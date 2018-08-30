@@ -21,6 +21,7 @@ import java.io.{InputStream, OutputStream}
 import org.apache.beam.sdk.coders.{ Coder => BCoder, _}
 import scala.reflect.{ClassTag, classTag}
 import scala.collection.{ mutable => m }
+import scala.collection.SortedSet
 
 private final object UnitCoder extends AtomicCoder[Unit]{
   def encode(value: Unit, os: OutputStream): Unit = ()
@@ -114,6 +115,14 @@ private class SetCoder[T](c: BCoder[T]) extends AtomicCoder[Set[T]] {
     seqCoder.encode(value.toSeq, os)
   def decode(is: InputStream): Set[T] =
     Set(seqCoder.decode(is):_*)
+}
+
+private class SortedSetCoder[T: Ordering](c: BCoder[T]) extends AtomicCoder[SortedSet[T]] {
+  val seqCoder = new SeqCoder[T](c)
+  def encode(value: SortedSet[T], os: OutputStream): Unit =
+    seqCoder.encode(value.toSeq, os)
+  def decode(is: InputStream): SortedSet[T] =
+    SortedSet(seqCoder.decode(is):_*)
 }
 
 private class MapCoder[K, V](kc: BCoder[K], vc: BCoder[V]) extends AtomicCoder[Map[K, V]] {
@@ -219,6 +228,8 @@ trait ScalaCoders {
       }
     }
 
-  // implicit def sortedSetCoder[T: Coder]: Coder[scala.collection.SortedSet[T]] = ???
+  implicit def sortedSetCoder[T: Coder : Ordering]: Coder[SortedSet[T]] =
+    Coder.transform(Coder[T]){ bc => Coder.beam(new SortedSetCoder[T](bc)) }
+
   // implicit def enumerationCoder[E <: Enumeration]: Coder[E#Value] = ???
 }

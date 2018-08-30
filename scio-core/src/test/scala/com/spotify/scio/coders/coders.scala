@@ -58,6 +58,7 @@ object CaseClassWithExplicitCoder {
     })
 }
 
+
 case class NestedB(x: Int)
 case class NestedA(nb: NestedB)
 

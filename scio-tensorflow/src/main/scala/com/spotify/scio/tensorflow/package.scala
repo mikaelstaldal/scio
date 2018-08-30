@@ -18,6 +18,7 @@
 package com.spotify.scio
 
 import com.spotify.scio.testing.TestIO
+import com.spotify.scio.coders.Coder
 import org.tensorflow.example.Example
 
 package object tensorflow extends TensorFlowImplicits {
@@ -25,5 +26,7 @@ package object tensorflow extends TensorFlowImplicits {
   case class TFRecordIO(path: String) extends TestIO[Array[Byte]](path)
 
   case class TFExampleIO(path: String) extends TestIO[Example](path)
+
+  implicit def featureTypeCoder: Coder[org.tensorflow.metadata.v0.FeatureType] = Coder.kryo
 
 }
