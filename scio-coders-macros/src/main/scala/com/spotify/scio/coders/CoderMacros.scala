@@ -48,7 +48,7 @@ private[coders] object CoderMacros {
 
   // scalastyle:off method.length
   def issueFallbackWarning[T: c.WeakTypeTag](
-    c: whitebox.Context): c.Tree = {
+    c: whitebox.Context)(lp: c.Expr[shapeless.LowPriority]): c.Tree = {
     import c.universe._
     val wtt = weakTypeOf[T]
     val TypeRef(pre, sym, args) = wtt

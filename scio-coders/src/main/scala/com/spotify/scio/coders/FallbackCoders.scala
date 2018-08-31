@@ -19,5 +19,6 @@ package com.spotify.scio.coders
 
 trait LowPriorityFallbackCoder extends LowPriorityCoderDerivation {
   import language.experimental.macros
-  def fallback[T]: Coder[T] = macro com.spotify.scio.coders.CoderMacros.issueFallbackWarning[T]
+  def fallback[T](implicit lp: shapeless.LowPriority): Coder[T] =
+    macro CoderMacros.issueFallbackWarning[T]
 }
