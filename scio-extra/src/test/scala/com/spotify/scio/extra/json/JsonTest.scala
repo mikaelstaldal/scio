@@ -27,7 +27,6 @@ import org.apache.commons.io.FileUtils
 
 import scala.collection.JavaConverters._
 import scala.io.Source
-import com.spotify.scio.coders.Coder
 
 
 object JsonJob {

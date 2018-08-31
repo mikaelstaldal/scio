@@ -21,7 +21,6 @@ import java.io.{InputStream, OutputStream}
 import scala.annotation.implicitNotFound
 import org.apache.beam.sdk.coders.{Coder => BCoder, AtomicCoder}
 import scala.reflect.ClassTag
-import scala.language.higherKinds
 
 @implicitNotFound("""
 Cannot find a Coder instance for type:

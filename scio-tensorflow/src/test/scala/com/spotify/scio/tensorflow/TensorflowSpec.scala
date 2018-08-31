@@ -32,9 +32,6 @@ import org.tensorflow.example.Example
 
 import scala.io.Source
 
-import com.spotify.scio.coders._
-
-
 private object TFGraphJob {
 
   def main(argv: Array[String]): Unit = {

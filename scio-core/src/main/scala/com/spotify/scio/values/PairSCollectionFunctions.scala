@@ -31,7 +31,6 @@ import org.apache.beam.sdk.coders.KvCoder
 import org.apache.beam.sdk.transforms._
 import org.apache.beam.sdk.values.{KV, PCollection, PCollectionView}
 import org.slf4j.LoggerFactory
-import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 import scala.reflect.ClassTag
 
 private object PairSCollectionFunctions {

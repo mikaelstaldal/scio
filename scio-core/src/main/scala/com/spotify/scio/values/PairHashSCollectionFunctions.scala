@@ -18,9 +18,7 @@
 package com.spotify.scio.values
 
 import com.spotify.scio.coders.Coder
-
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
-import scala.reflect.ClassTag
 
  /**
   * Extra functions available on SCollections of (key, value) pairs for hash based joins

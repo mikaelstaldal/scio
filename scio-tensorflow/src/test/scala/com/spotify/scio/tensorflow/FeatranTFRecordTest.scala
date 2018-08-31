@@ -24,9 +24,6 @@ import com.spotify.scio.testing.PipelineSpec
 import org.tensorflow.example.Example
 import org.tensorflow.metadata.v0.{FixedShape, Schema, SparseFeature}
 
-import com.spotify.scio.coders._
-
-
 case class TrainingPoint(x1: Double, label: Double)
 
 object ExamplesJobV2 {

@@ -19,7 +19,7 @@ package com.spotify.scio.coders
 
 import java.io.{InputStream, OutputStream}
 import org.apache.beam.sdk.coders.{ Coder => BCoder, _}
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.ClassTag
 import scala.collection.{ mutable => m }
 import scala.collection.SortedSet
 

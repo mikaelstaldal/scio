@@ -18,7 +18,7 @@
 package com.spotify.scio.coders
 
 import org.apache.beam.sdk.{coders => bcoders}
-import org.apache.beam.sdk.coders.{ Coder => BCoder, _}
+import org.apache.beam.sdk.coders.{ Coder => _, _}
 
 //
 // Java Coders
@@ -60,9 +60,7 @@ trait JavaCoders {
   implicit def mutationCaseCoder: Coder[com.google.bigtable.v2.Mutation.MutationCase] = Coder.kryo
   // implicit def mutationCoder: Coder[com.google.bigtable.v2.Mutation] = ???
 
-  import org.apache.beam.sdk.transforms.windowing.{BoundedWindow, IntervalWindow}
-  // implicit def boundedWindowCoder: Coder[BoundedWindow] =
-  //   Coder.beam(BoundedWindow.getCoder())
+  import org.apache.beam.sdk.transforms.windowing.IntervalWindow
   implicit def intervalWindowCoder: Coder[IntervalWindow] =
     Coder.beam(IntervalWindow.getCoder())
 

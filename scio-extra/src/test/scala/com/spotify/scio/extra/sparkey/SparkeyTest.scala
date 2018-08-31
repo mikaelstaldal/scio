@@ -24,8 +24,6 @@ import java.util.Arrays
 import com.spotify.scio._
 import com.spotify.scio.testing._
 import com.spotify.sparkey._
-import com.spotify.scio.coders.Coder
-
 
 class SparkeyTest extends PipelineSpec {
 
