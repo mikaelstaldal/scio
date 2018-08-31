@@ -38,6 +38,10 @@ case class DummyCC(s: String)
 case class ParameterizedDummy[A](value: A)
 case class MultiParameterizedDummy[A, B](valuea: A, valueb: B)
 object TestObject
+object TestObject1 {
+  val somestring = "something"
+  val somelong = 42l
+}
 case class CaseClassWithExplicitCoder(i: Int, s: String)
 object CaseClassWithExplicitCoder {
   import org.apache.beam.sdk.coders.{AtomicCoder, StringUtf8Coder, VarIntCoder}
@@ -83,6 +87,11 @@ class CodersTest extends FlatSpec with Matchers {
 
   def checkNotFallback[T: ClassTag](t: T)(implicit C: Coder[T], eq: Equality[T]): Assertion = {
     C should !== (Coder.kryo[T])
+    check[T](t)(C, eq)
+  }
+
+  def checkFallback[T: ClassTag](t: T)(implicit C: Coder[T], eq: Equality[T]): Assertion = {
+    C should === (Coder.kryo[T])
     check[T](t)(C, eq)
   }
 
@@ -184,16 +193,17 @@ class CodersTest extends FlatSpec with Matchers {
     checkNotFallback(new LocalDateTime)
     checkNotFallback(new DateTime)
     checkNotFallback(FileSystems.getDefault().getPath("logs", "access.log"))
-
-
   }
 
-  it should "Serialize objects" ignore {
-    check(TestObject)
+  it should "Serialize objects" in {
+    checkNotFallback(TestObject)
+    checkNotFallback(TestObject1)
   }
 
-  it should "only derive Coder if no coder exists" ignore {
+  it should "only derive Coder if no coder exists" in {
     checkNotFallback(CaseClassWithExplicitCoder(1, "hello"))
+    Coder[CaseClassWithExplicitCoder] should
+      === (CaseClassWithExplicitCoder.caseClassWithExplicitCoderCoder)
   }
 
   private def withSCollection[T: Coder](fn: SCollection[T] => Assertion): Assertion = {
@@ -204,26 +214,9 @@ class CodersTest extends FlatSpec with Matchers {
     res
   }
 
-  // it should "provide a fallback if no safe coder is available" in
-  //   withSCollection[Unit] {
-  //     scoll =>
-  //       val coders = scoll.context.coders
-  //       import org.apache.avro.generic.GenericRecord
-  //       val schema = avro.user.getSchema
-  //       val record: GenericRecord = avro.user
-  //       illTyped("""check(record)""")
+  it should "provide a fallback if no safe coder is available" in {
+    val record: GenericRecord = Avro.user
+    checkFallback(record)
+  }
 
-  //       {
-  //         import coders.fallback
-  //         check(record)
-  //       }
-  //   }
-
-  // it should "not use a fallback if a safe coder is available" in
-  //   withSCollection[Unit] { scoll =>
-  //     val coders =  scoll.context.coders
-  //     import coders.fallback
-  //     illTyped("SCoder[DummyCC]") // ambiguous implicit values
-  //     succeed
-  //   }
 }
