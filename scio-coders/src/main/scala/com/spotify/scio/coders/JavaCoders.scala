@@ -19,6 +19,7 @@ package com.spotify.scio.coders
 
 import org.apache.beam.sdk.{coders => bcoders}
 import org.apache.beam.sdk.coders.{ Coder => _, _}
+import org.apache.beam.sdk.values.KV
 
 //
 // Java Coders
@@ -70,5 +71,7 @@ trait JavaCoders {
     Coder.beam(org.apache.beam.sdk.io.gcp.bigquery.TableRowJsonCoder.of())
   implicit def messageCoder: Coder[org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage] =
     Coder.beam(org.apache.beam.sdk.io.gcp.pubsub.PubsubMessageWithAttributesCoder.of())
-  // implicit def entityCoder: Coder[com.google.datastore.v1.Entity] = ???
+
+  implicit def beamKVCoder[K: Coder, V: Coder]: Coder[KV[K, V]] =
+    Coder.kv(Coder[K], Coder[V])
 }

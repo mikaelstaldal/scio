@@ -50,6 +50,8 @@ object CoderMaterializer {
           beam(r, o, idCoder),
           id,
           coders.mapValues(u => beam(r, o, u)).map(identity)))
+      case KVCoder(koder, voder) =>
+        KvCoder.of(beam(r, o, koder), beam(r, o, voder))
     }
   }
 

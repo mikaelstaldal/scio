@@ -20,6 +20,7 @@ package com.spotify.scio.coders
 import java.io.{InputStream, OutputStream}
 import scala.annotation.implicitNotFound
 import org.apache.beam.sdk.coders.{Coder => BCoder, AtomicCoder}
+import org.apache.beam.sdk.values.KV
 import scala.reflect.ClassTag
 
 @implicitNotFound("""
@@ -46,6 +47,8 @@ final case class Transform[A, B] private (c: Coder[A], f: BCoder[A] => Coder[B])
 final case class Disjonction[T, Id] private (
   idCoder: Coder[Id], id: T => Id, coder: Map[Id, Coder[T]]) extends Coder[T]
 final case class Record[T] private (cs: Array[(String, Coder[T])]) extends Coder[Array[T]]
+// KV are special in beam and need to be serialized using an instance of KvCoder.
+final case class KVCoder[K, V] private (koder: Coder[K], voder: Coder[V]) extends Coder[KV[K, V]]
 
 private final case class DisjonctionCoder[T, Id](
   idCoder: BCoder[Id], id: T => Id, coders: Map[Id, BCoder[T]]) extends AtomicCoder[T] {
@@ -119,6 +122,8 @@ private class RecordCoder[T: ClassTag](
 sealed trait CoderGrammar {
   def beam[T](beam: BCoder[T]): Coder[T] =
     Beam(beam)
+  def kv[K, V](koder: Coder[K], voder: Coder[V]): Coder[KV[K, V]] =
+    KVCoder(koder, voder)
   def kryo[T](implicit ct: ClassTag[T]): Coder[T] =
     Fallback[T](ct)
   def transform[A, B](c: Coder[A])(f: BCoder[A] => Coder[B]): Coder[B] =
