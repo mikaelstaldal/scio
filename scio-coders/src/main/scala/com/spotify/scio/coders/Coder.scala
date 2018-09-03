@@ -31,9 +31,6 @@ Cannot find a Coder instance for type:
   This can happen for a few reasons, but the most common case is that a data
   member somewhere within this type doesn't have a Coder instance in scope. Here are
   some debugging hints:
-    - Make sure you imported com.spotify.scio.coders.Implicits._
-    - If you can't annotate the definition, you can also generate a Coder using
-        implicit val someClassCoder = com.spotify.scio.coders.Coder.gen[SomeCaseClass]
     - For Option types, ensure that a Coder instance is in scope for the non-Option version.
     - For List and Seq types, ensure that a Coder instance is in scope for a single element.
     - You can check that an instance exists for Coder in the REPL or in your code:

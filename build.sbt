@@ -306,7 +306,8 @@ lazy val root: Project = Project(
   scioExamples,
   scioRepl,
   scioJmh,
-  scioCoders
+  scioCoders,
+  scioCodersMacros
 )
 
 lazy val scioCore: Project = Project(

@@ -64,7 +64,7 @@ private[coders] object CoderMacros {
 
     def shortMessage =
       s"""
-      | Warning: No implicit Coder found for type:
+      | Warning: No implicit Coder found for type, using Kryo fallback:
       |
       |   >> $wtt
       """
@@ -157,8 +157,23 @@ private[coders] object CoderMacros {
     // scalastyle:on line.size.limit
     val coder = removeAnnotations.transform(getLazyVal)
 
-    //XXX: find a way to get rid of $outer references at compile time
-    val tree: c.Tree = coder
+    val isPrivateContructor =
+      wtt.decls.collect {
+        case m: MethodSymbol if m.isConstructor =>
+          m.isPrivate
+      }.headOption.getOrElse(false)
+
+
+    val tree: c.Tree =
+      if(isPrivateContructor) {
+        // Magnolia does not support classes with a private constructor.
+        // Workaround the limitation by usong a fallback in that case
+        q"""_root_.com.spotify.scio.coders.Coder.fallback[$wtt](null)"""
+      } else {
+        //XXX: find a way to get rid of $outer references at compile time
+        coder
+      }
+
     tree
   }
   // scalastyle:on method.length

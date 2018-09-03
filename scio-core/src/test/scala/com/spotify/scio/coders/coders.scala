@@ -66,6 +66,11 @@ object CaseClassWithExplicitCoder {
 case class NestedB(x: Int)
 case class NestedA(nb: NestedB)
 
+class PrivateClass private (val value: Long) extends AnyVal
+object PrivateClass {
+  def apply(l: Long) = new PrivateClass(l)
+}
+
 class CodersTest extends FlatSpec with Matchers {
 
   val userId = UserId(Array[Byte](1, 2, 3, 4))
@@ -217,6 +222,11 @@ class CodersTest extends FlatSpec with Matchers {
   it should "provide a fallback if no safe coder is available" in {
     val record: GenericRecord = Avro.user
     checkFallback(record)
+  }
+
+  it should "support classes with private contructors" in {
+    Coder.gen[PrivateClass]
+    checkFallback(PrivateClass(42l))
   }
 
 }
