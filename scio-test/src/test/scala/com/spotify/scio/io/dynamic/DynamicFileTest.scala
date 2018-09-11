@@ -33,8 +33,12 @@ import scala.collection.JavaConverters._
 
 class DynamicFileTest extends PipelineSpec {
 
-  private def verifyOutput(path: Path, expected: String*): Unit =
-    Files.list(path).iterator().asScala.toSet shouldBe expected.map(path.resolve).toSet
+  private def verifyOutput(path: Path, expected: String*): Unit = {
+    val actual = Files.list(path).iterator().asScala
+      .filterNot(_.toFile.getName.startsWith("."))
+      .toSet
+    actual shouldBe expected.map(path.resolve).toSet
+  }
 
   "Dynamic File" should "support text files" in {
     val tmpDir = Files.createTempDirectory("dynamic-io-")
@@ -53,26 +57,11 @@ class DynamicFileTest extends PipelineSpec {
     FileUtils.deleteDirectory(tmpDir.toFile)
   }
 
-  it should "support text files with default" in {
-    val tmpDir = Files.createTempDirectory("dynamic-io-")
-    val sc1 = ScioContext()
-    val fileDestination = FileDestinations(tmpDir.toString, default = "empty")
-    sc1.parallelize(Seq.empty[Int])
-      .saveAsTextFile(fileDestination)(s => (s.toInt % 2).toString)
-    sc1.close()
-    verifyOutput(tmpDir, "empty")
-
-    val sc2 = ScioContext()
-    sc2.textFile(s"$tmpDir/empty/*.txt") should beEmpty
-    sc2.close()
-    FileUtils.deleteDirectory(tmpDir.toFile)
-  }
-
   it should "support text files with windowing" in {
     val tmpDir = Files.createTempDirectory("dynamic-io-")
     val options = PipelineOptionsFactory.fromArgs("--streaming=true").create()
     val sc1 = ScioContext(options)
-    val fileDestination = FileDestinations.windowed(tmpDir.toString, 1)
+    val fileDestination = FileDestinations(tmpDir.toString, 1)
     sc1.parallelize(1 to 10)
       // Explicit optional arguments `Duration.Zero` and `WindowOptions()` as a workaround for the
       // mysterious "Could not find proxy for val sc1" compiler error
@@ -138,27 +127,11 @@ class DynamicFileTest extends PipelineSpec {
     FileUtils.deleteDirectory(tmpDir.toFile)
   }
 
-  it should "support Avro files with default" in {
-    val tmpDir = Files.createTempDirectory("dynamic-io-")
-    val sc1 = ScioContext()
-    sc1.parallelize(Seq.empty[Int]).map(newSpecificRecord)
-      .saveAsAvroFile(FileDestinations(tmpDir.toString, default = "empty"), schema) { r =>
-        (r.getIntField % 2).toString
-      }
-    sc1.close()
-    verifyOutput(tmpDir, "empty")
-
-    val sc2 = ScioContext()
-    sc2.avroFile[TestRecord](s"$tmpDir/empty/*.avro") should beEmpty
-    sc2.close()
-    FileUtils.deleteDirectory(tmpDir.toFile)
-  }
-
   it should "support Avro files with windowing" in {
     val tmpDir = Files.createTempDirectory("dynamic-io-")
     val options = PipelineOptionsFactory.fromArgs("--streaming=true").create()
     val sc1 = ScioContext(options)
-    val fileDestination = FileDestinations.windowed(tmpDir.toString, 1)
+    val fileDestination = FileDestinations(tmpDir.toString, 1)
     sc1.parallelize(1 to 10).map(newSpecificRecord)
       // Explicit optional arguments `Duration.Zero` and `WindowOptions()` as a workaround for the
       // mysterious "Could not find proxy for val sc1" compiler error
