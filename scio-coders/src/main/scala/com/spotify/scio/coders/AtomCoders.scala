@@ -18,6 +18,7 @@
 package com.spotify.scio.coders
 
 import org.apache.beam.sdk.coders.{ Coder => BCoder, _}
+import scala.language.higherKinds
 import Coder.beam
 
 trait AtomCoders extends LowPriorityFallbackCoder {
