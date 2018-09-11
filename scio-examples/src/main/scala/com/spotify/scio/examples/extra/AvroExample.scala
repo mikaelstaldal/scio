@@ -19,6 +19,7 @@ package com.spotify.scio.examples.extra
 
 import com.spotify.scio._
 import com.spotify.scio.coders.Coder
+import com.spotify.scio.avro._
 import com.spotify.scio.avro.Account
 import com.spotify.scio.avro.types.AvroType
 import org.apache.avro.Schema

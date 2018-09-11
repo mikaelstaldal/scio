@@ -24,35 +24,22 @@ import java.io.File
 import java.net.URI
 import java.nio.file.Files
 
-import com.google.api.services.bigquery.model.TableReference
 import com.google.datastore.v1.{Entity, Query}
-import com.google.protobuf.Message
-import com.spotify.scio.avro.types.AvroType
-import com.spotify.scio.avro.types.AvroType.HasAvroAnnotation
-import com.spotify.scio.bigquery._
-import com.spotify.scio.bigquery.types.BigQueryType.HasAnnotation
-import com.spotify.scio.coders.{AvroBytesUtil, KryoAtomicCoder, KryoOptions, Coder, CoderMaterializer}
-
 import com.spotify.scio.io.Tap
 import com.spotify.scio.metrics.Metrics
+import com.spotify.scio.io._
 import com.spotify.scio.options.ScioOptions
 import com.spotify.scio.testing._
 import com.spotify.scio.util._
 import com.spotify.scio.values._
-import org.apache.avro.Schema
-import org.apache.avro.generic.GenericRecord
-import org.apache.avro.specific.SpecificRecordBase
+import com.spotify.scio.coders.{Coder, CoderMaterializer}
 import org.apache.beam.sdk.PipelineResult.State
-import org.apache.beam.sdk.extensions.gcp.options.{GcpOptions, GcsOptions}
-import org.apache.beam.sdk.io.gcp.bigquery.SchemaAndRecord
-import org.apache.beam.sdk.io.gcp.{bigquery => bqio, datastore => dsio, pubsub => psio}
+import org.apache.beam.sdk.extensions.gcp.options.GcsOptions
 import org.apache.beam.sdk.metrics.Counter
 import org.apache.beam.sdk.options._
-import org.apache.beam.sdk.transforms.DoFn.ProcessElement
 import org.apache.beam.sdk.transforms._
-import org.apache.beam.sdk.util.CoderUtils
 import org.apache.beam.sdk.values._
-import org.apache.beam.sdk.{Pipeline, PipelineResult, io => gio}
+import org.apache.beam.sdk.{Pipeline, PipelineResult, io => beam}
 import org.joda.time.Instant
 import org.slf4j.LoggerFactory
 
@@ -62,8 +49,7 @@ import scala.collection.mutable.{Buffer => MBuffer}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Future, Promise}
 import scala.io.Source
-import scala.reflect.{ClassTag, classTag}
-import scala.reflect.runtime.universe._
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -127,13 +113,11 @@ object ContextAndArgs {
 
     val Reg = "^-{1,2}(.+)$".r
     val (customArgs, remainingArgs) =
-      args.partition { s =>
-        s match {
-          case Reg(a) =>
-            val name = a.takeWhile(_ != '=')
-            supportedCustomArgs.contains(name)
-          case x => true
-        }
+      args.partition {
+        case Reg(a) =>
+          val name = a.takeWhile(_ != '=')
+          supportedCustomArgs.contains(name)
+        case _ => true
       }
 
     CaseApp.detailedParseWithHelp[T](customArgs) match {
@@ -242,13 +226,6 @@ object ScioContext {
 
   private def defaultOptions: PipelineOptions = PipelineOptionsFactory.create()
 
-}
-
-import org.apache.beam.sdk.coders.{ Coder => BCoder }
-private[scio] class AvroDecodeDoFn[T](coder: BCoder[T]) extends DoFn[GenericRecord, T] {
-  @ProcessElement
-  final def processElement(c: DoFn[GenericRecord, T]#ProcessContext): Unit =
-    c.output(AvroBytesUtil.decode(coder, c.element()))
 }
 
 /**
@@ -368,21 +345,33 @@ class ScioContext private[scio] (val options: PipelineOptions,
   private var _pipeline: Pipeline = _
   private var _isClosed: Boolean = false
   private val _promises: MBuffer[(Promise[Tap[_]], Tap[_])] = MBuffer.empty
-  private val _queryJobs: MBuffer[QueryJob] = MBuffer.empty
   private val _preRunFns: MBuffer[() => Unit] = MBuffer.empty
   private val _counters: MBuffer[Counter] = MBuffer.empty
+  private var _onClose: Unit => Unit = identity
+  private val _localInstancesCache: scala.collection.mutable.Map[ClassTag[_], Any] =
+    scala.collection.mutable.Map.empty
 
   /** Wrap a [[org.apache.beam.sdk.values.PCollection PCollection]]. */
   def wrap[T](p: PCollection[T]): SCollection[T] =
     new SCollectionImpl[T](p, this)
 
-  // =======================================================================
-  // Miscellaneous
-  // =======================================================================
+  /**
+   * Add callbacks calls when the context is closed.
+   */
+  private[scio] def onClose(f: Unit => Unit): Unit =
+    _onClose = _onClose compose f
 
-  private lazy val bigQueryClient: BigQueryClient = {
-    val o = optionsAs[GcpOptions]
-    BigQueryClient(o.getProject, o.getGcpCredential)
+  /*
+   * Get from or put in an object in this context local cache
+   * This method is used in `scio-bigquery` to only instantiate the BigQuery client once
+   * even if there's multiple implicit conversions from [[ScioContext]] to `BigQueryScioContext`
+   */
+  private[scio] def cached[T: ClassTag](t: => T): T = {
+    val key = implicitly[ClassTag[T]]
+    _localInstancesCache.getOrElse(key, {
+      _localInstancesCache += key -> t
+      t
+    }).asInstanceOf[T]
   }
 
   // =======================================================================
@@ -407,9 +396,7 @@ class ScioContext private[scio] (val options: PipelineOptions,
 
   /** Close the context. No operation can be performed once the context is closed. */
   def close(): ScioResult = requireNotClosed {
-    if (_queryJobs.nonEmpty) {
-      bigQueryClient.waitForJobs(_queryJobs: _*)
-    }
+    _onClose(())
 
     if (_counters.nonEmpty) {
       val counters = _counters.toArray
@@ -463,6 +450,8 @@ class ScioContext private[scio] (val options: PipelineOptions,
         getBeamMetrics)
 
     override def getAwaitDuration: Duration = awaitDuration
+
+    override def isTest: Boolean = context.isTest
   }
 
   /** Whether the context is closed. */
@@ -501,12 +490,15 @@ class ScioContext private[scio] (val options: PipelineOptions,
   /**  Whether this is a test context. */
   def isTest: Boolean = testId.isDefined
 
-  private[scio] def testIn: TestInput = TestDataManager.getInput(testId.get)
-  private[scio] def testOut: TestOutput = TestDataManager.getOutput(testId.get)
+  private[scio] def testInput: TestInput = TestDataManager.getInput(testId.get)
+  private[scio] def testOutput: TestOutput = TestDataManager.getOutput(testId.get)
   private[scio] def testDistCache: TestDistCache = TestDataManager.getDistCache(testId.get)
 
-  private[scio] def getTestInput[T: Coder](key: TestIO[T]): SCollection[T] =
-    this.parallelize(testIn(key).asInstanceOf[Seq[T]])
+  private[scio] def testOut[T](io: ScioIO[T]): SCollection[T] => Unit =
+    testOutput(io)
+
+  private[scio] def getTestInput[T: Coder](io: ScioIO[T]): SCollection[T] =
+    this.parallelize(testInput(io).asInstanceOf[Seq[T]])
 
   // =======================================================================
   // Read operations
@@ -517,262 +509,18 @@ class ScioContext private[scio] (val options: PipelineOptions,
     pipeline.apply(this.tfName, root)
 
   /**
-   * Get an SCollection for an object file using default serialization.
-   *
-   * Serialized objects are stored in Avro files to leverage Avro's block file format. Note that
-   * serialization is not guaranteed to be compatible across Scio releases.
-   * @group input
-   */
-  def objectFile[T: Coder](path: String): SCollection[T] = requireNotClosed {
-    if (this.isTest) {
-      this.getTestInput(ObjectFileIO[T](path))
-    } else {
-      val coder = Coder[T]
-      val recCoder = Coder.genericRecordCoder(AvroBytesUtil.schema)
-      this.avroFile[GenericRecord](path, AvroBytesUtil.schema)(classTag[GenericRecord], recCoder)
-        .parDo(new AvroDecodeDoFn[T](CoderMaterializer.beam(context, coder)))
-        .setName(path)
-    }
-  }
-
-  /**
-   * Get an SCollection for an Avro file.
-   * @param schema must be not null if `T` is of type
-   *               [[org.apache.avro.generic.GenericRecord GenericRecord]].
-   * @group input
-   */
-  def avroFile[T: ClassTag : Coder](path: String, schema: Schema = null): SCollection[T] =
-  requireNotClosed {
-    if (this.isTest) {
-      this.getTestInput(AvroIO[T](path))
-    } else {
-      val cls = ScioUtil.classOf[T]
-      val t = if (classOf[SpecificRecordBase] isAssignableFrom cls) {
-        gio.AvroIO.read(cls).from(path)
-      } else {
-        gio.AvroIO.readGenericRecords(schema).from(path).asInstanceOf[gio.AvroIO.Read[T]]
-      }
-      wrap(this.applyInternal(t)).setName(path)
-    }
-  }
-
-  /**
-    * Get a typed SCollection from an Avro schema.
-    *
-    * Note that `T` must be annotated with
-    * [[com.spotify.scio.avro.types.AvroType AvroType.fromSchema]],
-    * [[com.spotify.scio.avro.types.AvroType AvroType.fromPath]], or
-    * [[com.spotify.scio.avro.types.AvroType AvroType.toSchema]].
-    *
-    * @group input
-    */
-  def typedAvroFile[T <: HasAvroAnnotation : ClassTag : TypeTag : Coder](path: String)
-  : SCollection[T] = requireNotClosed {
-    if (this.isTest) {
-      this.getTestInput(AvroIO[T](path))
-    } else {
-      val avroT = AvroType[T]
-      val t = gio.AvroIO.readGenericRecords(avroT.schema).from(path)
-      wrap(this.applyInternal(t)).setName(path).map(avroT.fromGenericRecord)
-    }
-  }
-
-  /**
-   * Get an SCollection for a Protobuf file.
-   *
-   * Protobuf messages are serialized into `Array[Byte]` and stored in Avro files to leverage
-   * Avro's block file format.
-   * @group input
-   */
-  def protobufFile[T: Coder](path: String)(implicit ev: T <:< Message): SCollection[T] =
-    requireNotClosed {
-      if (this.isTest) {
-        this.getTestInput(ProtobufIO[T](path))
-      } else {
-        objectFile(path)
-      }
-    }
-
-  private def avroBigQueryRead[T <: HasAnnotation : ClassTag : TypeTag] = {
-    val fn = BigQueryType[T].fromAvro
-    bqio.BigQueryIO
-      .read(new SerializableFunction[SchemaAndRecord, T] {
-        override def apply(input: SchemaAndRecord): T = fn(input.getRecord)
-      })
-      .withCoder(new KryoAtomicCoder[T](KryoOptions(this.options)))
-  }
-
-  private def bqReadQuery[T: Coder](typedRead: bqio.BigQueryIO.TypedRead[T],
-                                       sqlQuery: String,
-                                       flattenResults: Boolean  = false)
-  : SCollection[T] = requireNotClosed {
-    if (this.isTest) {
-      this.getTestInput(BigQueryIO[T](sqlQuery))
-    } else if (this.bigQueryClient.isCacheEnabled) {
-      val queryJob = this.bigQueryClient.newQueryJob(sqlQuery, flattenResults)
-      _queryJobs.append(queryJob)
-      val read = typedRead.from(queryJob.table).withoutValidation()
-      wrap(this.applyInternal(read)).setName(sqlQuery)
-    } else {
-      val baseQuery = if (!flattenResults) {
-        typedRead.fromQuery(sqlQuery).withoutResultFlattening()
-      } else {
-        typedRead.fromQuery(sqlQuery)
-      }
-      val query = if (this.bigQueryClient.isLegacySql(sqlQuery, flattenResults)) {
-        baseQuery
-      } else {
-        baseQuery.usingStandardSql()
-      }
-      wrap(this.applyInternal(query)).setName(sqlQuery)
-    }
-  }
-
-  private def bqReadTable[T: Coder](typedRead: bqio.BigQueryIO.TypedRead[T],
-                                       table: TableReference)
-  : SCollection[T] = requireNotClosed {
-    val tableSpec: String = bqio.BigQueryHelpers.toTableSpec(table)
-    if (this.isTest) {
-      this.getTestInput(BigQueryIO[T](tableSpec))
-    } else {
-      wrap(this.applyInternal(typedRead.from(table))).setName(tableSpec)
-    }
-  }
-
-  /**
-   * Get an SCollection for a BigQuery SELECT query.
-   * Both [[https://cloud.google.com/bigquery/docs/reference/legacy-sql Legacy SQL]] and
-   * [[https://cloud.google.com/bigquery/docs/reference/standard-sql/ Standard SQL]] dialects are
-   * supported. By default the query dialect will be automatically detected. To override this
-   * behavior, start the query string with `#legacysql` or `#standardsql`.
-   * @group input
-   */
-  def bigQuerySelect(sqlQuery: String,
-                     flattenResults: Boolean = false): SCollection[TableRow] =
-    bqReadQuery(bqio.BigQueryIO.readTableRows(), sqlQuery, flattenResults)
-
-  /**
-   * Get an SCollection for a BigQuery table.
-   * @group input
-   */
-  def bigQueryTable(table: TableReference): SCollection[TableRow] =
-    bqReadTable(bqio.BigQueryIO.readTableRows(), table)
-
-  /**
-   * Get an SCollection for a BigQuery table.
-   * @group input
-   */
-  def bigQueryTable(tableSpec: String): SCollection[TableRow] =
-    this.bigQueryTable(bqio.BigQueryHelpers.parseTableSpec(tableSpec))
-
-  /**
-   * Get a typed SCollection for a BigQuery SELECT query or table.
-   *
-   * Note that `T` must be annotated with
-   * [[com.spotify.scio.bigquery.types.BigQueryType.fromSchema BigQueryType.fromSchema]],
-   * [[com.spotify.scio.bigquery.types.BigQueryType.fromTable BigQueryType.fromTable]],
-   * [[com.spotify.scio.bigquery.types.BigQueryType.fromQuery BigQueryType.fromQuery]], or
-   * [[com.spotify.scio.bigquery.types.BigQueryType.toTable BigQueryType.toTable]].
-   *
-   * By default the source (table or query) specified in the annotation will be used, but it can
-   * be overridden with the `newSource` parameter. For example:
-   *
-   * {{{
-   * @BigQueryType.fromTable("publicdata:samples.gsod")
-   * class Row
-   *
-   * // Read from [publicdata:samples.gsod] as specified in the annotation.
-   * sc.typedBigQuery[Row]()
-   *
-   * // Read from [myproject:samples.gsod] instead.
-   * sc.typedBigQuery[Row]("myproject:samples.gsod")
-   *
-   * // Read from a query instead.
-   * sc.typedBigQuery[Row]("SELECT * FROM [publicdata:samples.gsod] LIMIT 1000")
-   * }}}
-   *
-   * Both [[https://cloud.google.com/bigquery/docs/reference/legacy-sql Legacy SQL]] and
-   * [[https://cloud.google.com/bigquery/docs/reference/standard-sql/ Standard SQL]] dialects are
-   * supported. By default the query dialect will be automatically detected. To override this
-   * behavior, start the query string with `#legacysql` or `#standardsql`.
-   */
-  def typedBigQuery[T <: HasAnnotation : ClassTag : TypeTag : Coder](newSource: String = null)
-  : SCollection[T] = {
-    val bqt = BigQueryType[T]
-    val typedRead = avroBigQueryRead[T]
-    if (newSource == null) {
-      // newSource is missing, T's companion object must have either table or query
-      if (bqt.isTable) {
-        this.bqReadTable(typedRead, bqio.BigQueryHelpers.parseTableSpec(bqt.table.get))
-      } else if (bqt.isQuery) {
-        this.bqReadQuery(typedRead, bqt.query.get)
-      } else {
-        throw new IllegalArgumentException(s"Missing table or query field in companion object")
-      }
-    } else {
-      // newSource can be either table or query
-      val table = scala.util.Try(bqio.BigQueryHelpers.parseTableSpec(newSource)).toOption
-      if (table.isDefined) {
-        this.bqReadTable(typedRead, table.get)
-      } else {
-        this.bqReadQuery(typedRead, newSource)
-      }
-    }
-  }
-
-  /**
    * Get an SCollection for a Datastore query.
    * @group input
    */
   def datastore(projectId: String, query: Query, namespace: String = null): SCollection[Entity] =
-    requireNotClosed {
-      if (this.isTest) {
-        this.getTestInput(DatastoreIO(projectId, query, namespace))
-      } else {
-        wrap(this.applyInternal(
-          dsio.DatastoreIO.v1().read()
-            .withProjectId(projectId)
-            .withNamespace(namespace)
-            .withQuery(query)))
-      }
-    }
+    this.read(DatastoreIO(projectId))(DatastoreIO.ReadParam(query, namespace))
 
   private def pubsubIn[T: ClassTag : Coder](isSubscription: Boolean,
                                     name: String,
                                     idAttribute: String,
-                                    timestampAttribute: String)
-  : SCollection[T] = requireNotClosed {
-    if (this.isTest) {
-      this.getTestInput(PubsubIO(name))
-    } else {
-      val cls = ScioUtil.classOf[T]
-      def setup[U](read: psio.PubsubIO.Read[U]) = {
-        var r = read
-        r = if (isSubscription) r.fromSubscription(name) else r.fromTopic(name)
-        if (idAttribute != null) {
-          r = r.withIdAttribute(idAttribute)
-        }
-        if (timestampAttribute != null) {
-          r = r.withTimestampAttribute(timestampAttribute)
-        }
-        r
-      }
-      if (classOf[String] isAssignableFrom cls) {
-        val t = setup(psio.PubsubIO.readStrings())
-        wrap(this.applyInternal(t)).setName(name).asInstanceOf[SCollection[T]]
-      } else if (classOf[SpecificRecordBase] isAssignableFrom cls) {
-        val t = setup(psio.PubsubIO.readAvros(cls))
-        wrap(this.applyInternal(t)).setName(name)
-      } else if (classOf[Message] isAssignableFrom cls) {
-        val t = setup(psio.PubsubIO.readProtos(cls.asSubclass(classOf[Message])))
-        wrap(this.applyInternal(t)).setName(name).asInstanceOf[SCollection[T]]
-      } else {
-        val coder = pipeline.getCoderRegistry.getScalaCoder[T](options)
-        val t = setup(psio.PubsubIO.readMessages())
-        wrap(this.applyInternal(t)).setName(name)
-          .map(m => CoderUtils.decodeFromByteArray(coder, m.getPayload))
-      }
-    }
+                                    timestampAttribute: String): SCollection[T] = {
+    val io = PubsubIO[T](name, idAttribute, timestampAttribute)
+    this.read(io)(PubsubIO.ReadParam(isSubscription))
   }
 
   /**
@@ -793,80 +541,43 @@ class ScioContext private[scio] (val options: PipelineOptions,
                                timestampAttribute: String = null)
   : SCollection[T] = pubsubIn(isSubscription = false, topic, idAttribute, timestampAttribute)
 
-  private def pubsubInWithAttributes[T: Coder](isSubscription: Boolean,
+  private def pubsubInWithAttributes[T: ClassTag : Coder](isSubscription: Boolean,
                                                   name: String,
                                                   idAttribute: String,
                                                   timestampAttribute: String)
-  : SCollection[(T, Map[String, String])] = requireNotClosed {
-    if (this.isTest) {
-      this.getTestInput(PubsubIO(name))
-    } else {
-      var t = psio.PubsubIO.readMessagesWithAttributes()
-      t = if (isSubscription) t.fromSubscription(name) else t.fromTopic(name)
-      if (idAttribute != null) {
-        t = t.withIdAttribute(idAttribute)
-      }
-      if (timestampAttribute != null) {
-        t = t.withTimestampAttribute(timestampAttribute)
-      }
-      val elementCoder = Coder[T]
-      wrap(this.applyInternal(t)).setName(name)
-        .map { m =>
-          val payload = CoderUtils.decodeFromByteArray(
-            CoderMaterializer.beam(context, elementCoder), m.getPayload)
-          val attributes = JMapWrapper.of(m.getAttributeMap)
-          (payload, attributes)
-        }
-    }
+  : SCollection[(T, Map[String, String])] = {
+    val io = PubsubIO.withAttributes[T](name, idAttribute, timestampAttribute)
+    this.read(io)(PubsubIO.ReadParam(isSubscription))
   }
 
   /**
     * Get an SCollection for a Pub/Sub subscription that includes message attributes.
     * @group input
     */
-  def pubsubSubscriptionWithAttributes[T: Coder](sub: String,
+  def pubsubSubscriptionWithAttributes[T: ClassTag : Coder](sub: String,
                                                     idAttribute: String = null,
                                                     timestampAttribute: String = null)
   : SCollection[(T, Map[String, String])] =
-    pubsubInWithAttributes(isSubscription = true, sub, idAttribute, timestampAttribute)
+    pubsubInWithAttributes[T](isSubscription = true, sub, idAttribute, timestampAttribute)
 
   /**
     * Get an SCollection for a Pub/Sub topic that includes message attributes.
     * @group input
     */
-  def pubsubTopicWithAttributes[T: Coder](topic: String,
+  def pubsubTopicWithAttributes[T: ClassTag : Coder](topic: String,
                                              idAttribute: String = null,
                                              timestampAttribute: String = null)
   : SCollection[(T, Map[String, String])] =
-    pubsubInWithAttributes(isSubscription = false, topic, idAttribute, timestampAttribute)
+    pubsubInWithAttributes[T](isSubscription = false, topic, idAttribute, timestampAttribute)
 
-  /**
-   * Get an SCollection for a BigQuery TableRow JSON file.
-   * @group input
-   */
-  def tableRowJsonFile(path: String): SCollection[TableRow] = requireNotClosed {
-    if (this.isTest) {
-      this.getTestInput[TableRow](TableRowJsonIO(path))
-    } else {
-      wrap(this.applyInternal(gio.TextIO.read().from(path))).setName(path)
-        .map(e => ScioUtil.jsonFactory.fromString(e, classOf[TableRow]))
-    }
-  }
 
   /**
    * Get an SCollection for a text file.
    * @group input
    */
-  def textFile(path: String,
-               compression: gio.Compression = gio.Compression.AUTO)
-  : SCollection[String] = requireNotClosed {
-    if (this.isTest) {
-      this.getTestInput(TextIO(path))
-    } else {
-      wrap(this.applyInternal(gio.TextIO.read().from(path)
-        .withCompression(compression))).setName(path)
-    }
-  }
+  def textFile(path: String, compression: beam.Compression = beam.Compression.AUTO)
+  : SCollection[String] =
+    this.read(TextIO(path))(TextIO.ReadParam(compression))
 
   /**
    * Get an SCollection with a custom input transform. The transform should have a unique name.
@@ -880,6 +591,32 @@ class ScioContext private[scio] (val options: PipelineOptions,
       wrap(this.pipeline.apply(name, transform))
     }
   }
+
+  /**
+   * Generic read method for all `ScioIO[T]` implementations, if it is test pipeline this will
+   * feed value of pre-registered input IO implementation which match for the passing `ScioIO[T]`
+   * implementation. if not this will invoke [[com.spotify.scio.io.ScioIO[T]#read]] method along
+   * with read configurations passed by.
+   *
+   * @param io     an implementation of `ScioIO[T]` trait
+   * @param params configurations need to pass to perform underline read implementation
+   */
+  def read[T: Coder](io: ScioIO[T])(params: io.ReadP): SCollection[T] =
+    readImpl[T](io)(params)
+
+  private def readImpl[T: Coder](io: ScioIO[T])(params: io.ReadP): SCollection[T] =
+    requireNotClosed {
+      if (this.isTest) {
+        this.getTestInput(io)
+      } else {
+        io.read(this, params)
+      }
+    }
+
+  // scalastyle:off structural.type
+  def read[T: Coder](io: ScioIO[T]{ type ReadP = Unit }): SCollection[T] =
+    readImpl[T](io)(())
+  // scalastyle:on structural.type
 
   private[scio] def addPreRunFn(f: () => Unit): Unit = _preRunFns += f
 
@@ -914,15 +651,15 @@ class ScioContext private[scio] (val options: PipelineOptions,
    * Distribute a local Scala `Map` to form an SCollection.
    * @group in_memory
    */
-  def parallelize[K, V](elems: Map[K, V])(
-    implicit koder: Coder[K], voder: Coder[V]): SCollection[(K, V)] =
-  requireNotClosed {
-    // TODO: merge Create.of and map ?
-    val kvc = CoderMaterializer.kvCoder[K, V](context)
-    wrap(this.applyInternal(Create.of(elems.asJava).withCoder(kvc)))
-      .map(kv => (kv.getKey, kv.getValue))
-      .setName(truncate(elems.toString()))
-  }
+  def parallelize[K, V](elems: Map[K, V])(implicit coder: Coder[(K, V)]): SCollection[(K, V)] =
+    parallelize(elems.toList)
+  // requireNotClosed {
+  //   // TODO: merge Create.of and map ?
+  //   val kvc = CoderMaterializer.kvCoder[K, V](context)
+  //   wrap(this.applyInternal(Create.of(elems.asJava).withCoder(kvc)))
+  //     .map(kv => (kv.getKey, kv.getValue))
+  //     .setName(truncate(elems.toString()))
+  // }
 
   /**
    * Distribute a local Scala `Iterable` with timestamps to form an SCollection.

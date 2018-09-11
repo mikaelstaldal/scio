@@ -26,42 +26,29 @@ import java.io.PrintStream
 import java.lang.{Boolean => JBoolean, Double => JDouble, Iterable => JIterable}
 import java.util.concurrent.ThreadLocalRandom
 
-import com.google.api.services.bigquery.model.{TableReference, TableRow, TableSchema}
 import com.google.datastore.v1.Entity
-import com.google.protobuf.Message
 import com.spotify.scio.ScioContext
-import com.spotify.scio.avro.types.AvroType
-import com.spotify.scio.avro.types.AvroType.HasAvroAnnotation
-import com.spotify.scio.bigquery.types.BigQueryType
-import com.spotify.scio.bigquery.types.BigQueryType.HasAnnotation
 import com.spotify.scio.coders.AvroBytesUtil
+import com.spotify.scio.coders.Coder
 import com.spotify.scio.io._
-import com.spotify.scio.testing._
 import com.spotify.scio.util._
 import com.spotify.scio.util.random.{BernoulliSampler, PoissonSampler}
 import com.twitter.algebird.{Aggregator, Monoid, Semigroup}
-import org.apache.avro.Schema
 import org.apache.avro.file.CodecFactory
 import org.apache.avro.generic.GenericRecord
-import org.apache.avro.specific.SpecificRecordBase
-import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.{CreateDisposition, WriteDisposition}
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage
-import org.apache.beam.sdk.io.gcp.{bigquery => bqio, datastore => dsio, pubsub => psio}
 import org.apache.beam.sdk.io.{Compression, FileBasedSink}
 import org.apache.beam.sdk.transforms.DoFn.ProcessElement
 import org.apache.beam.sdk.transforms._
 import org.apache.beam.sdk.transforms.windowing._
-import org.apache.beam.sdk.util.CoderUtils
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.apache.beam.sdk.values._
-import org.apache.beam.sdk.{io => gio}
+import org.apache.beam.sdk.{io => beam}
 import org.joda.time.{Duration, Instant}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeMap
 import scala.concurrent._
 import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
 
 import org.apache.beam.sdk.coders.{ Coder => BCoder }
 private[scio] class AvroEncodeDoFn[T](coder: BCoder[T]) extends DoFn[T, GenericRecord] {
@@ -131,7 +118,6 @@ sealed trait SCollection[T] extends PCollectionWrapper[T] {
   self =>
 
   import TupleFunctions._
-  import com.spotify.scio.Implicits._
 
   // =======================================================================
   // Delegations for internal PCollection
@@ -954,68 +940,37 @@ sealed trait SCollection[T] extends PCollectionWrapper[T] {
   def materialize(implicit coder: Coder[T]): Future[Tap[T]] =
     materialize(ScioUtil.getTempFile(context), isCheckpoint = false)
 
-  private[scio] def materialize(path: String, isCheckpoint: Boolean)(
-      implicit coder: Coder[T]): Future[Tap[T]] =
-    internalSaveAsObjectFile(path, isCheckpoint = isCheckpoint)
-
-  /**
-   * Save this SCollection as an object file using default serialization.
-   *
-   * Serialized objects are stored in Avro files to leverage Avro's block file format. Note that
-   * serialization is not guaranteed to be compatible across Scio releases.
-   * @group output
-   */
-  def saveAsObjectFile(path: String, numShards: Int = 0, suffix: String = ".obj",
-                       metadata: Map[String, AnyRef] = Map.empty)(
-                         implicit coder: Coder[T]): Future[Tap[T]] =
-    internalSaveAsObjectFile(path, numShards, suffix, metadata)
-
-  private def internalSaveAsObjectFile(path: String, numShards: Int = 0, suffix: String = ".obj",
-                                       metadata: Map[String, AnyRef] = Map.empty,
-                                       isCheckpoint: Boolean = false)(implicit elemCoder: Coder[T])
-  : Future[Tap[T]] = {
+  private[scio] def materialize(path: String, isCheckpoint: Boolean)(implicit coder: Coder[T]): Future[Tap[T]] =
     if (context.isTest) {
-      // if it's a test and checkpoint - no need to test checkpoint data
-      if (!isCheckpoint) context.testOut(ObjectFileIO(path))(this)
+      // Do not run assertions on materialized value but still access test context to trigger
+      // the test checking if we're running inside a JobTest
+      if (!isCheckpoint) context.testOutput
       saveAsInMemoryTap
     } else {
       implicit val avroCoder = Coder.genericRecordCoder(AvroBytesUtil.schema)
+      val elemCoder = CoderMaterializer.beam(context, coder)
+      val write = beam.AvroIO.writeGenericRecords(AvroBytesUtil.schema)
+        .to(this.pathWithShards(path))
+        .withSuffix(".obj.avro")
+        .withCodec(CodecFactory.deflateCodec(6))
+        .withMetadata(Map.empty[String, AnyRef].asJava)
       this
-        .parDo(new AvroEncodeDoFn[T](CoderMaterializer.beam(context, elemCoder)))
-        .saveAsAvroFile(path, numShards, AvroBytesUtil.schema, suffix, metadata = metadata)
-      context.makeFuture(ObjectFileTap[T](ScioUtil.addPartSuffix(path)))
+        .parDo(new DoFn[T, GenericRecord] {
+          @ProcessElement
+          private[scio] def processElement(c: DoFn[T, GenericRecord]#ProcessContext): Unit =
+            c.output(AvroBytesUtil.encode(elemCoder, c.element()))
+        })
+        .applyInternal(write)
+      context.makeFuture(MaterializeTap[T](path, context))
     }
-  }
 
   private[scio] def pathWithShards(path: String) = path.replaceAll("\\/+$", "") + "/part"
-
-  private def avroOut[U](write: gio.AvroIO.Write[U],
-                         path: String, numShards: Int, suffix: String,
-                         codec: CodecFactory,
-                         metadata: Map[String, AnyRef]) =
-    write
-      .to(pathWithShards(path))
-      .withNumShards(numShards)
-      .withSuffix(suffix + ".avro")
-      .withCodec(codec)
-      .withMetadata(metadata.asJava)
-
-  private def typedAvroOut[U](write: gio.AvroIO.TypedWrite[U, Void, GenericRecord],
-                              path: String, numShards: Int, suffix: String,
-                              codec: CodecFactory,
-                              metadata: Map[String, AnyRef]) =
-    write
-      .to(pathWithShards(path))
-      .withNumShards(numShards)
-      .withSuffix(suffix + ".avro")
-      .withCodec(codec)
-      .withMetadata(metadata.asJava)
 
   private[scio] def textOut(path: String,
                             suffix: String,
                             numShards: Int,
                             compression: Compression) = {
-    gio.TextIO.write()
+    beam.TextIO.write()
       .to(pathWithShards(path))
       .withSuffix(suffix)
       .withNumShards(numShards)
@@ -1023,231 +978,11 @@ sealed trait SCollection[T] extends PCollectionWrapper[T] {
   }
 
   /**
-   * Save this SCollection as an Avro file.
-   * @param schema must be not null if `T` is of type
-   *               [[org.apache.avro.generic.GenericRecord GenericRecord]].
-   * @group output
-   */
-  def saveAsAvroFile(path: String,
-                     numShards: Int = 0,
-                     schema: Schema = null,
-                     suffix: String = "",
-                     codec: CodecFactory = CodecFactory.deflateCodec(6),
-                     metadata: Map[String, AnyRef] = Map.empty)(
-                       implicit ct: ClassTag[T], coder: Coder[T])
-  : Future[Tap[T]] =
-    if (context.isTest) {
-      context.testOut(AvroIO(path))(this)
-      saveAsInMemoryTap
-    } else {
-      val cls = ScioUtil.classOf[T]
-      val t = if (classOf[SpecificRecordBase] isAssignableFrom cls) {
-        gio.AvroIO.write(cls)
-      } else {
-        gio.AvroIO.writeGenericRecords(schema).asInstanceOf[gio.AvroIO.Write[T]]
-      }
-      this.applyInternal(avroOut(t, path, numShards, suffix, codec, metadata))
-      context.makeFuture(AvroTap(ScioUtil.addPartSuffix(path), schema))
-    }
-
-  /**
-    * Save this SCollection as an Avro file. Note that element type `T` must be a case class
-    * annotated with [[com.spotify.scio.avro.types.AvroType AvroType.toSchema]].
-    * @group output
-    */
-  // scalastyle:off parameter.number
-  def saveAsTypedAvroFile(path: String,
-                          numShards: Int = 0,
-                          suffix: String = "",
-                          codec: CodecFactory = CodecFactory.deflateCodec(6),
-                          metadata: Map[String, AnyRef] = Map.empty)
-                         (implicit ct: ClassTag[T],
-                          tt: TypeTag[T],
-                          ev: T <:< HasAvroAnnotation,
-                          coder: Coder[T])
-  : Future[Tap[T]] = {
-    val avroT = AvroType[T]
-    if (context.isTest) {
-      context.testOut(AvroIO(path))(this)
-      saveAsInMemoryTap
-    } else {
-      val t = gio.AvroIO.writeCustomTypeToGenericRecords()
-        .withFormatFunction(new SerializableFunction[T, GenericRecord] {
-          override def apply(input: T): GenericRecord = avroT.toGenericRecord(input)
-        })
-        .withSchema(avroT.schema)
-      this.applyInternal(typedAvroOut(t, path, numShards, suffix, codec, metadata))
-      context.makeFuture(AvroTap(ScioUtil.addPartSuffix(path), avroT.schema))
-    }
-  }
-  // scalastyle:on parameter.number
-
-  /**
-   * Save this SCollection as a Protobuf file.
-   *
-   * Protobuf messages are serialized into `Array[Byte]` and stored in Avro files to leverage
-   * Avro's block file format.
-   * @group output
-   */
-  def saveAsProtobufFile(path: String, numShards: Int = 0)
-                        (implicit ev: T <:< Message,
-                          coder: Coder[T],
-                          ct: ClassTag[T]): Future[Tap[T]] = {
-    if (context.isTest) {
-      context.testOut(ProtobufIO(path))(this)
-      saveAsInMemoryTap
-    } else {
-      import me.lyh.protobuf.generic
-      val schema = generic.Schema.of[Message](ct.asInstanceOf[ClassTag[Message]]).toJson
-      val metadata = Map("protobuf.generic.schema" -> schema)
-      this.saveAsObjectFile(path, numShards, ".protobuf", metadata)
-    }
-  }
-
-  /**
-   * Save this SCollection as a BigQuery table. Note that elements must be of type
-   * [[com.google.api.services.bigquery.model.TableRow TableRow]].
-   * @group output
-   */
-  def saveAsBigQuery(table: TableReference, schema: TableSchema,
-                     writeDisposition: WriteDisposition,
-                     createDisposition: CreateDisposition,
-                     tableDescription: String)
-                    (implicit ev: T <:< TableRow, coder: Coder[T]): Future[Tap[TableRow]] = {
-    val tableSpec = bqio.BigQueryHelpers.toTableSpec(table)
-    if (context.isTest) {
-      context.testOut(BigQueryIO[TableRow](tableSpec))(this.asInstanceOf[SCollection[TableRow]])
-
-      if (writeDisposition == WriteDisposition.WRITE_APPEND) {
-        Future.failed(new NotImplementedError("BigQuery future with append not implemented"))
-      } else {
-        saveAsInMemoryTap.asInstanceOf[Future[Tap[TableRow]]]
-      }
-    } else {
-      var transform = bqio.BigQueryIO.writeTableRows().to(table)
-      if (schema != null) transform = transform.withSchema(schema)
-      if (createDisposition != null) transform = transform.withCreateDisposition(createDisposition)
-      if (writeDisposition != null) transform = transform.withWriteDisposition(writeDisposition)
-      if (tableDescription != null) transform = transform.withTableDescription(tableDescription)
-      this.asInstanceOf[SCollection[TableRow]].applyInternal(transform)
-
-      if (writeDisposition == WriteDisposition.WRITE_APPEND) {
-        Future.failed(new NotImplementedError("BigQuery future with append not implemented"))
-      } else {
-        context.makeFuture(BigQueryTap(table))
-      }
-    }
-  }
-
-  /**
-   * Save this SCollection as a BigQuery table. Note that elements must be of type
-   * [[com.google.api.services.bigquery.model.TableRow TableRow]].
-   * @group output
-   */
-  def saveAsBigQuery(tableSpec: String, schema: TableSchema = null,
-                     writeDisposition: WriteDisposition = null,
-                     createDisposition: CreateDisposition = null,
-                     tableDescription: String = null)
-                    (implicit ev: T <:< TableRow, coder: Coder[T]): Future[Tap[TableRow]] =
-    saveAsBigQuery(
-      bqio.BigQueryHelpers.parseTableSpec(tableSpec),
-      schema,
-      writeDisposition,
-      createDisposition,
-      tableDescription)
-
-  /**
-   * Save this SCollection as a BigQuery table. Note that element type `T` must be a case class
-   * annotated with [[com.spotify.scio.bigquery.types.BigQueryType.toTable BigQueryType.toTable]].
-   */
-  def saveAsTypedBigQuery(table: TableReference,
-                          writeDisposition: WriteDisposition,
-                          createDisposition: CreateDisposition)
-                         (implicit ct: ClassTag[T],
-                          tt: TypeTag[T],
-                          ev: T <:< HasAnnotation,
-                          coder: Coder[T])
-  : Future[Tap[T]] = {
-    val tableSpec = bqio.BigQueryHelpers.toTableSpec(table)
-    if (context.isTest) {
-      context.testOut(BigQueryIO[T](tableSpec))(this.asInstanceOf[SCollection[T]])
-
-      if (writeDisposition == WriteDisposition.WRITE_APPEND) {
-        Future.failed(new NotImplementedError("BigQuery future with append not implemented"))
-      } else {
-        saveAsInMemoryTap
-      }
-    } else {
-      val bqt = BigQueryType[T]
-      val initialTfName = this.tfName
-      import scala.concurrent.ExecutionContext.Implicits.global
-      this
-        .withName(initialTfName).map(bqt.toTableRow)
-        .withName(s"$initialTfName$$Write").saveAsBigQuery(
-          table,
-          bqt.schema,
-          writeDisposition,
-          createDisposition,
-          bqt.tableDescription.orNull)
-        .map(_.map(bqt.fromTableRow))
-    }
-  }
-
-  /**
-   * Save this SCollection as a BigQuery table. Note that element type `T` must be annotated with
-   * [[com.spotify.scio.bigquery.types.BigQueryType BigQueryType]].
-   *
-   * This could be a complete case class with
-   * [[com.spotify.scio.bigquery.types.BigQueryType.toTable BigQueryType.toTable]]. For example:
-   *
-   * {{{
-   * @BigQueryType.toTable
-   * case class Result(name: String, score: Double)
-   *
-   * val p: SCollection[Result] = // process data and convert elements to Result
-   * p.saveAsTypedBigQuery("myproject:mydataset.mytable")
-   * }}}
-   *
-   * It could also be an empty class with schema from
-   * [[com.spotify.scio.bigquery.types.BigQueryType.fromSchema BigQueryType.fromSchema]],
-   * [[com.spotify.scio.bigquery.types.BigQueryType.fromTable BigQueryType.fromTable]], or
-   * [[com.spotify.scio.bigquery.types.BigQueryType.fromQuery BigQueryType.fromQuery]]. For
-   * example:
-   *
-   * {{{
-   * @BigQueryType.fromTable("publicdata:samples.gsod")
-   * class Row
-   *
-   * sc.typedBigQuery[Row]()
-   *   .sample(withReplacement = false, fraction = 0.1)
-   *   .saveAsTypedBigQuery("myproject:samples.gsod")
-   * }}}
-   */
-  def saveAsTypedBigQuery(tableSpec: String,
-                          writeDisposition: WriteDisposition = null,
-                          createDisposition: CreateDisposition = null)
-                         (implicit ct: ClassTag[T],
-                          tt: TypeTag[T],
-                          ev: T <:< HasAnnotation,
-                          coder: Coder[T])
-  : Future[Tap[T]] =
-    saveAsTypedBigQuery(
-      bqio.BigQueryHelpers.parseTableSpec(tableSpec),
-      writeDisposition, createDisposition)
-
-  /**
    * Save this SCollection as a Datastore dataset. Note that elements must be of type `Entity`.
    * @group output
    */
-  def saveAsDatastore(projectId: String)(implicit ev: T <:< Entity): Future[Tap[Entity]] = {
-    if (context.isTest) {
-      context.testOut(DatastoreIO(projectId))(this.asInstanceOf[SCollection[Entity]])
-    } else {
-      this.asInstanceOf[SCollection[Entity]].applyInternal(
-        dsio.DatastoreIO.v1.write.withProjectId(projectId))
-    }
-    Future.failed(new NotImplementedError("Datastore future not implemented"))
-  }
+  def saveAsDatastore(projectId: String)(implicit ev: T <:< Entity): Future[Tap[Entity]] =
+    this.asInstanceOf[SCollection[Entity]].write(DatastoreIO(projectId))
 
   /**
    * Save this SCollection as a Pub/Sub topic.
@@ -1255,92 +990,21 @@ sealed trait SCollection[T] extends PCollectionWrapper[T] {
    */
   def saveAsPubsub(topic: String,
                    idAttribute: String = null,
-                   timestampAttribute: String = null)(implicit coder: Coder[T], ct: ClassTag[T])
-  : Future[Tap[T]] = {
-    if (context.isTest) {
-      context.testOut(PubsubIO(topic))(this)
-    } else {
-      val cls = ScioUtil.classOf[T]
-      def setup[U](write: psio.PubsubIO.Write[U]): psio.PubsubIO.Write[U] = {
-        var w = write
-        if (idAttribute != null) {
-          w = w.withIdAttribute(idAttribute)
-        }
-        if (timestampAttribute != null) {
-          w = w.withTimestampAttribute(timestampAttribute)
-        }
-        w.to(topic)
-      }
-      if (classOf[String] isAssignableFrom cls) {
-        val t = setup(psio.PubsubIO.writeStrings())
-        this.asInstanceOf[SCollection[String]].applyInternal(t)
-      } else if (classOf[SpecificRecordBase] isAssignableFrom cls) {
-        val t = setup(psio.PubsubIO.writeAvros(cls))
-        this.applyInternal(t)
-      } else if (classOf[Message] isAssignableFrom cls) {
-        val t = setup(psio.PubsubIO.writeProtos(cls.asInstanceOf[Class[Message]]))
-        this.asInstanceOf[SCollection[Message]].applyInternal(t)
-      } else {
-        val t = setup(psio.PubsubIO.writeMessages())
-        this.map { t =>
-          val payload = CoderUtils.encodeToByteArray(CoderMaterializer.beam(context, coder), t)
-          new PubsubMessage(payload, Map.empty[String, String].asJava)
-        }.applyInternal(t)
-      }
-    }
-    Future.failed(new NotImplementedError("Pubsub future not implemented"))
-  }
+                   timestampAttribute: String = null)(implicit ct: ClassTag[T], coder: Coder[T])
+  : Future[Tap[T]] =
+    this.write(PubsubIO[T](topic))
 
   /**
     * Save this SCollection as a Pub/Sub topic using the given map as message attributes.
     * @group output
     */
-  def saveAsPubsubWithAttributes[V: ClassTag](topic: String,
+  def saveAsPubsubWithAttributes[V: ClassTag : Coder](topic: String,
                                               idAttribute: String = null,
                                               timestampAttribute: String = null)
-                                             (implicit ev: T <:< (V, Map[String, String]),
-                                               coder: Coder[PubsubMessage])
-  : Future[Tap[V]] = {
-    if (context.isTest) {
-      context.testOut(PubsubIO(topic))(this)
-    } else {
-      var transform = psio.PubsubIO.writeMessages().to(topic)
-      if (idAttribute != null) {
-        transform = transform.withIdAttribute(idAttribute)
-      }
-      if (timestampAttribute != null) {
-        transform = transform.withTimestampAttribute(timestampAttribute)
-      }
-      val coder = internal.getPipeline.getCoderRegistry.getScalaCoder[V](context.options)
-      this.map { t =>
-        val kv = t.asInstanceOf[(V, Map[String, String])]
-        val payload = CoderUtils.encodeToByteArray(coder, kv._1)
-        val attributes = kv._2.asJava
-        new PubsubMessage(payload, attributes)
-      }.applyInternal(transform)
-    }
-    Future.failed(new NotImplementedError("Pubsub future not implemented"))
-  }
-
-  /**
-   * Save this SCollection as a BigQuery TableRow JSON text file. Note that elements must be of
-   * type [[com.google.api.services.bigquery.model.TableRow TableRow]].
-   * @group output
-   */
-  def saveAsTableRowJsonFile(path: String,
-                             numShards: Int = 0,
-                             compression: Compression = Compression.UNCOMPRESSED)
-                            (implicit ev: T <:< TableRow,
-                            coder: Coder[T]): Future[Tap[TableRow]] = {
-    if (context.isTest) {
-      context.testOut(TableRowJsonIO(path))(this.asInstanceOf[SCollection[TableRow]])
-      saveAsInMemoryTap.asInstanceOf[Future[Tap[TableRow]]]
-    } else {
-      this.asInstanceOf[SCollection[TableRow]]
-        .map(e => ScioUtil.jsonFactory.toString(e))
-        .applyInternal(textOut(path, ".json", numShards, compression))
-      context.makeFuture(TableRowJsonTap(ScioUtil.addPartSuffix(path)))
-    }
+                                             (implicit ev: T <:< (V, Map[String, String]))
+  : Future[Tap[(V, Map[String, String])]] = {
+    val io = PubsubIO.withAttributes[V](topic, idAttribute, timestampAttribute)
+    this.asInstanceOf[SCollection[(V, Map[String, String])]].write(io)
   }
 
   /**
@@ -1357,13 +1021,7 @@ sealed trait SCollection[T] extends PCollectionWrapper[T] {
     } else {
       this.map(_.toString)
     }
-    if (context.isTest) {
-      context.testOut(TextIO(path))(s)
-      s.saveAsInMemoryTap
-    } else {
-      s.applyInternal(textOut(path, suffix, numShards, compression))
-      context.makeFuture(TextTap(ScioUtil.addPartSuffix(path)))
-    }
+    s.write(TextIO(path))(TextIO.WriteParam(suffix, numShards, compression))
   }
 
   /**
@@ -1385,6 +1043,32 @@ sealed trait SCollection[T] extends PCollectionWrapper[T] {
     InMemorySink.save(tap.id, this)
     context.makeFuture(tap)
   }
+
+  /**
+   * Generic write method for all `ScioIO[T]` implementations, if it is test pipeline this will
+   * evaluate pre-registered output IO implementation which match for the passing `ScioIO[T]`
+   * implementation. if not this will invoke [[com.spotify.scio.io.ScioIO[T]#write]] method along
+   * with write configurations passed by.
+   *
+   * @param io     an implementation of `ScioIO[T]` trait
+   * @param params configurations need to pass to perform underline write implementation
+   */
+  def write(io: ScioIO[T])(params: io.WriteP)(implicit coder: Coder[T]): Future[Tap[T]] =
+    writeImpl(io)(params)
+
+  private def writeImpl(io: ScioIO[T])(params: io.WriteP)(implicit coder: Coder[T]): Future[Tap[T]] = {
+    if (context.isTest) {
+      context.testOut(io)(this)
+      this.saveAsInMemoryTap
+    } else {
+      io.write(this, params)
+    }
+  }
+
+  // scalastyle:off structural.type
+  def write(io: ScioIO[T]{ type WriteP = Unit })(implicit coder: Coder[T]): Future[Tap[T]] =
+    writeImpl(io)(())
+  // scalastyle:on structural.type
 
 }
 // scalastyle:on number.of.methods

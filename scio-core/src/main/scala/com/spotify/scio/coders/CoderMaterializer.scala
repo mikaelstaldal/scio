@@ -22,13 +22,13 @@ import org.apache.beam.sdk.coders.CoderRegistry
 import org.apache.beam.sdk.options.PipelineOptions
 import org.apache.beam.sdk.options.PipelineOptionsFactory
 
-object CoderMaterializer {
+final object CoderMaterializer {
   import com.spotify.scio.ScioContext
 
-  def beam[T](sc: ScioContext, c: Coder[T]): BCoder[T] =
+  final def beam[T](sc: ScioContext, c: Coder[T]): BCoder[T] =
     beam(sc.pipeline.getCoderRegistry, sc.options, c)
 
-  def beamWithDefault[T](
+  final def beamWithDefault[T](
     coder: Coder[T],
     r: CoderRegistry = CoderRegistry.createDefault(),
     o: PipelineOptions = PipelineOptionsFactory.create()): BCoder[T] =

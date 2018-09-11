@@ -18,8 +18,8 @@
 package com.spotify.scio
 
 import com.spotify.scio.io.Tap
-import com.spotify.scio.testing.TestIO
 import com.spotify.scio.values.SCollection
+import com.spotify.scio.coders.Coder
 
 import scala.concurrent.Future
 
@@ -37,23 +37,6 @@ package object cassandra {
                               seedNodeHost: String, seedNodePort: Int = -1,
                               username: String = null, password: String = null)
 
-  case class CassandraIO[T](uniqueId: String) extends TestIO[T](uniqueId)
-
-  object CassandraIO {
-    def apply[T](opts: CassandraOptions): CassandraIO[T] = {
-      val sb = new StringBuilder
-      if (opts.username != null && opts.password != null) {
-        sb.append(s"${opts.username}:${opts.password}@")
-      }
-      sb.append(opts.seedNodeHost)
-      if (opts.seedNodePort >= 0) {
-        sb.append(opts.seedNodePort)
-      }
-      sb.append(s"/${opts.keyspace}/${opts.table}/${opts.cql}")
-      CassandraIO[T](sb.toString())
-    }
-  }
-
   /**
    * Enhanced version of [[com.spotify.scio.values.SCollection SCollection]] with Cassandra
    * methods.
@@ -70,25 +53,14 @@ package object cassandra {
      * cluster so remote nodes in a multi-datacenter cluster may become a bottleneck.
      *
      * '''NOTE: this module is optimized for throughput in batch mode and not recommended for
-     * * streaming mode.'''
+     * streaming mode.'''
      *
      * @param opts Cassandra options
      * @param parallelism number of concurrent bulk writers, default to number of Cassandra nodes
      * @param f function to convert input data to values for the CQL statement
      */
     def saveAsCassandra(opts: CassandraOptions, parallelism: Int = 0)
-                       (f: T => Seq[Any]): Future[Tap[T]] = {
-      if (self.context.isTest) {
-        self.context.testOut(CassandraIO(opts))(self)
-      } else {
-        val bulkOps = new BulkOperations(opts, parallelism)
-        self
-          .map(f.andThen(bulkOps.serializeFn))
-          .groupBy(bulkOps.partitionFn)
-          .map(bulkOps.writeFn)
-      }
-      Future.failed(new NotImplementedError("Cassandra future is not implemented"))
+                       (f: T => Seq[Any])(implicit coder: Coder[T]): Future[Tap[T]] =
+      self.write(CassandraIO[T](opts, parallelism))(CassandraIO.WriteParam(f))
     }
-  }
-
 }

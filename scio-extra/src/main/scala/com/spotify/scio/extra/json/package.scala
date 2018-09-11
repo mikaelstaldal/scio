@@ -18,21 +18,15 @@
 package com.spotify.scio.extra
 
 import com.spotify.scio.ScioContext
-import com.spotify.scio.io.{Tap, TextTap}
-import com.spotify.scio.coders.Coder
-
-import com.spotify.scio.testing.TestIO
-import com.spotify.scio.util.ScioUtil
+import com.spotify.scio.io.Tap
 import com.spotify.scio.values.SCollection
+import com.spotify.scio.coders.Coder
 import io.circe.Printer
 import io.circe.generic.AutoDerivation
-import io.circe.parser._
-import io.circe.syntax._
 import org.apache.beam.sdk.io.Compression
-import org.apache.beam.sdk.{io => gio}
 
 import scala.concurrent.Future
-import scala.util.{Left, Right}
+import scala.reflect.ClassTag
 
 /**
  * Main package for JSON APIs. Import all.
@@ -63,44 +57,22 @@ package object json extends AutoDerivation {
 
   /** Enhanced version of [[ScioContext]] with JSON methods. */
   implicit class JsonScioContext(@transient val self: ScioContext) extends Serializable {
-    def jsonFile[T: Coder : Decoder](path: String)
-    : SCollection[Either[DecodeError, T]] = self.requireNotClosed {
-      if (self.isTest) {
-        self.getTestInput[T](JsonIO[T](path)).map[Either[DecodeError, T]](Right(_))
-      } else {
-        self
-          .wrap(self.applyInternal(gio.TextIO.read().from(path))).setName(path)
-          .map { json =>
-            decode[T](json) match {
-              case Left(e) => Left(DecodeError(e, json))
-              case Right(t) => Right(t)
-            }
-          }
-      }
-    }
+    def jsonFile[T: ClassTag : Encoder : Decoder : Coder](path: String): SCollection[T] =
+      self.read(JsonIO[T](path))
   }
 
   /**
    * Enhanced version of [[com.spotify.scio.values.SCollection SCollection]] with JSON methods.
    */
-  implicit class JsonSCollection[T : Encoder : Decoder : Coder]
+  implicit class JsonSCollection[T : ClassTag : Encoder : Decoder]
   (@transient val self: SCollection[T]) extends Serializable {
     def saveAsJsonFile(path: String,
-                       printer: Printer = Printer.noSpaces,
+                       suffix: String = ".json",
                        numShards: Int = 0,
-                       compression: Compression = Compression.UNCOMPRESSED): Future[Tap[T]] = {
-      if (self.context.isTest) {
-        self.context.testOut(JsonIO[T](path))(self)
-        self.saveAsInMemoryTap
-      } else {
-        self
-          .map(x => printer.pretty(x.asJson))
-          .applyInternal(self.textOut(path, ".json", numShards, compression))
-        self.context.makeFuture(TextTap(ScioUtil.addPartSuffix(path)).map(decode[T](_).right.get))
-      }
+                       compression: Compression = Compression.UNCOMPRESSED,
+                       printer: Printer = Printer.noSpaces)(implicit coder: Coder[T]): Future[Tap[T]] = {
+      self.write(JsonIO[T](path))(JsonIO.WriteParam(suffix, numShards, compression, printer))
     }
   }
-
-  case class JsonIO[T](path: String) extends TestIO[T](path)
 
 }

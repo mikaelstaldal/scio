@@ -25,7 +25,8 @@ import com.spotify.featran.tensorflow._
 import com.spotify.featran.FeatureSpec
 import com.spotify.featran.transformers.StandardScaler
 import com.spotify.scio.ContextAndArgs
-import com.spotify.scio.testing.{PipelineSpec, TextIO}
+import com.spotify.scio.io._
+import com.spotify.scio.testing._
 import com.spotify.zoltar.tf.TensorFlowModel
 import org.tensorflow._
 import org.tensorflow.example.Example
@@ -62,7 +63,7 @@ private object TFGraphJob2Inputs {
   }
 }
 
-private object TFSavedJob {
+private[tensorflow] object TFSavedJob {
 
   case class Iris(sepalLength: Option[Double],
                   sepalWidth: Option[Double],

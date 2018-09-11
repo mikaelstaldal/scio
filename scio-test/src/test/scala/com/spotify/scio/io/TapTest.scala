@@ -23,6 +23,7 @@ import java.util.UUID
 
 import com.google.api.client.util.Charsets
 import com.spotify.scio._
+import com.spotify.scio.avro._
 import com.spotify.scio.avro.AvroUtils._
 import com.spotify.scio.bigquery._
 import com.spotify.scio.proto.SimpleV2.{SimplePB => SimplePBV2}
@@ -143,27 +144,6 @@ class TapTest extends TapSpec {
     FileUtils.deleteDirectory(dir)
   }
 
-  it should "support saveAsTableRowJsonFile" in {
-    def newTableRow(i: Int): TableRow = TableRow(
-      "int_field" -> 1 * i,
-      "long_field" -> 1L * i,
-      "float_field" -> 1F * i,
-      "double_field" -> 1.0 * i,
-      "boolean_field" -> "true",
-      "string_field" -> "hello")
-
-    val dir = tmpDir
-    // Compare .toString versions since TableRow may not round trip
-    val t = runWithFileFuture {
-      _
-        .parallelize(Seq(1, 2, 3))
-        .map(newTableRow)
-        .saveAsTableRowJsonFile(dir.getPath)
-    }.map(ScioUtil.jsonFactory.toString)
-    verifyTap(t, Set(1, 2, 3).map(i => ScioUtil.jsonFactory.toString(newTableRow(i))))
-    FileUtils.deleteDirectory(dir)
-  }
-
   it should "support saveAsTextFile" in {
     val dir = tmpDir
     val t = runWithFileFuture {
@@ -232,6 +212,27 @@ class TapTest extends TapSpec {
     FileUtils.deleteDirectory(dir)
   }
 
+  it should "support saveAsTableRowJsonFile" in {
+    def newTableRow(i: Int): TableRow = TableRow(
+      "int_field" -> 1 * i,
+      "long_field" -> 1L * i,
+      "float_field" -> 1F * i,
+      "double_field" -> 1.0 * i,
+      "boolean_field" -> "true",
+      "string_field" -> "hello")
+
+    val dir = tmpDir
+    // Compare .toString versions since TableRow may not round trip
+    val t = runWithFileFuture {
+      _
+        .parallelize(Seq(1, 2, 3))
+        .map(newTableRow)
+        .saveAsTableRowJsonFile(dir.getPath)
+    }.map(ScioUtil.jsonFactory.toString)
+    verifyTap(t, Set(1, 2, 3).map(i => ScioUtil.jsonFactory.toString(newTableRow(i))))
+    FileUtils.deleteDirectory(dir)
+  }
+
   it should "keep parent after Tap.map" in {
     val dir = tmpDir
     val t = runWithFileFuture {
@@ -241,8 +242,7 @@ class TapTest extends TapSpec {
     }.map(_.toInt)
     verifyTap(t, Set(1, 2, 3))
     t.isInstanceOf[Tap[Int]] shouldBe true
-    t.parent.get.isInstanceOf[TextTap] shouldBe true
-    t.parent.get.asInstanceOf[TextTap].path shouldBe ScioUtil.addPartSuffix(dir.getPath)
+    t.parent.get.isInstanceOf[Tap[_]] shouldBe true
     FileUtils.deleteDirectory(dir)
   }
 
