@@ -29,6 +29,9 @@ import scala.reflect.runtime.universe._
 
 private[types] object SchemaProvider {
 
+  private val m: scala.collection.concurrent.Map[Type, Schema] =
+    scala.collection.concurrent.TrieMap[Type, Schema]()
+
   def schemaOf[T: TypeTag]: Schema = {
     val tpe = typeOf[T]
 
@@ -36,7 +39,7 @@ private[types] object SchemaProvider {
       throw new RuntimeException(s"Unsupported type $tpe.erasure")
     }
 
-    toSchema(tpe)._1
+    m.getOrElseUpdate(tpe, toSchema(tpe)._1)
   }
 
   // scalastyle:off cyclomatic.complexity
